@@ -1,0 +1,28 @@
+IMAPAccount cymail
+Host imap.gmail.com
+User soham@iastate.edu
+PassCmd "gpg2 -q --for-your-eyes-only --no-tty -d ~/cymail_pass.gpg"
+SSLType IMAPS
+CertificateFile /etc/ssl/certs/ca-certificates.crt
+
+IMAPStore cymail-remote
+Account cymail
+
+MaildirStore cymail-local
+Subfolders Verbatim
+Path ~/Mail/CyMail/
+Inbox ~/Mail/CyMail/Inbox/
+
+Channel sync-cymail-default
+Master :cymail-remote:
+Slave :cymail-local:
+Patterns "INBOX"
+
+Channel sync-cymail-sent
+Master :cymail-remote:"Sent"
+Slave :cymail-local:Sent
+Create Slave
+
+Group cymail
+Channel sync-cymail-default
+Channel sync-cymail-sent

@@ -1,0 +1,1032 @@
+#+TITLE: Emacs Config
+#+AUTHOR: soham
+#+TOC: true
+#+DATE: 2019-01-04
+
+This is my emacs configuration. At present it is essentially a fork of
+[[https://github.com/jamiecollinson/dotfiles/blob/master/config.org/][Jamie Collision's]] emacs configuration, with a few minor changes.
+
+* Setup
+** Configure package sources
+
+Add repositories from which we'll load packages.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'package)
+  (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
+  (setq package-enable-at-startup nil)
+#+END_SRC
+
+** Bootstrap use-package
+
+If =use-package= is not installed, install it.
+
+#+BEGIN_SRC emacs-lisp
+  (package-initialize)
+  (unless (package-installed-p 'use-package)
+    (package-install 'use-package))
+  (require 'use-package)
+#+END_SRC
+
+By default all packages should be installed from package manager as that's the
+usual path. This is equivalent to setting =:ensure t= on each call to
+=use-package=. To disable set =:ensure nil= (this is done automatically for any
+packages using =:load-path= so shouldn't generally be needed).
+
+#+BEGIN_SRC emacs-lisp
+  (setq use-package-always-ensure t)
+#+END_SRC
+
+=auto-package-update= for automatic updates (duh!)
+
+#+BEGIN_SRC emacs-lisp
+  (use-package auto-package-update
+    :config
+    (setq auto-package-update-delete-old-versions t)
+    (setq auto-package-update-hide-results t)
+    (setq auto-package-update-prompt-before-update t)
+    (auto-package-update-maybe))
+#+END_SRC
+
+** Benchmark startup
+
+=benchmark-init= records startup time by package so we can debug. It only
+records things after it's initialised, so put as early in config as possible.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package benchmark-init
+    :config
+    ;; To disable collection of benchmark data after init is done.
+    (add-hook 'after-init-hook 'benchmark-init/deactivate))
+
+  (add-hook 'after-init-hook
+            (lambda () (message "loaded in %s" (emacs-init-time))))
+#+END_SRC
+
+** Increase garbage collector threshold
+
+The default garbage collection threshold is 800kB, increasing this to 10MB for
+startup increases speed (from 11.0s -> 9.7s when I tested).
+
+#+BEGIN_SRC emacs-lisp
+  (setq gc-cons-threshold 10000000)
+
+  ;; Restore after startup
+  (add-hook 'after-init-hook
+            (lambda ()
+              (setq gc-cons-threshold 1000000)
+              (message "gc-cons-threshold restored to %S"
+                       gc-cons-threshold)))
+#+END_SRC
+
+** Make it easy to edit this file
+
+#+BEGIN_SRC emacs-lisp
+  (defun find-config ()
+    "Edit config.org"
+    (interactive)
+    (find-file "~/dotfiles/emacs/config.org"))
+
+  (global-set-key (kbd "C-c I") 'find-config)
+#+END_SRC
+
+** Set custom settings to load in own file
+
+This stops emacs adding customised settings to =init.el=. I try to avoid using
+customize anyway, preferring programmatic control of variables. Creating it as a
+temporary file effectively disables it (i.e. any changes are session local).
+
+#+BEGIN_SRC emacs-lisp
+  (setq custom-file (make-temp-file "emacs-custom"))
+#+END_SRC
+
+** Add custom packages to load path
+
+By default Emacs only includes files directly under =user-emacs-directory=
+(usually =~/.emacs.d/=), so we need to add any folders containing custom
+packages.
+
+I put my scripts under =~/dotfiles/lisp/= and symlink it with =ln -s
+~/dotfiles/lisp ~/.emacs.d/lisp=.
+
+#+BEGIN_SRC emacs-lisp
+  (add-to-list 'load-path "~/.emacs.d/lisp/")
+#+END_SRC
+
+* Preferences
+
+Don't display the help screen on startup.
+
+#+BEGIN_SRC emacs-lisp
+  (setq inhibit-startup-screen t)
+#+END_SRC
+
+I prefer long lines to be broken.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default fill-column 80)
+  (setq-default word-wrap t)
+  (auto-fill-mode 1)
+#+END_SRC
+
+Let's turn off unwanted window decoration.
+
+#+BEGIN_SRC emacs-lisp
+  (tool-bar-mode -1)
+  (scroll-bar-mode -1)
+  (menu-bar-mode -1)
+#+END_SRC
+
+I don't want the error bell.
+
+#+BEGIN_SRC emacs-lisp
+  (setq ring-bell-function 'ignore)
+#+END_SRC
+
+Make the =yes or no= prompts shorter.
+
+#+BEGIN_SRC emacs-lisp
+  (defalias 'yes-or-no-p 'y-or-n-p)
+#+END_SRC
+
+A common frustration with new Emacs users is the =filename#= files created. This
+centralises the backup files created as you edit.
+
+#+BEGIN_SRC emacs-lisp
+  (setq backup-directory-alist '(("." . "~/.emacs.d/backup"))
+    backup-by-copying t    ; Don't delink hardlinks
+    version-control t      ; Use version numbers on backups
+    delete-old-versions t  ; Automatically delete excess backups
+    kept-new-versions 20   ; how many of the newest versions to keep
+    kept-old-versions 5    ; and how many of the old
+    )
+#+END_SRC
+
+I usually don't want tabs, if I do I can set this buffer-local to =t=. If I just
+want one tab then use =C-q= (=quoted-insert=) to insert as a literal.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default indent-tabs-mode nil)
+#+END_SRC
+
+I want to =ansi-term= to prompt =fish= instead of bash/zsh.
+
+#+BEGIN_SRC emacs-lisp
+  (setq explicit-shell-file-name "/usr/bin/fish")
+#+END_SRC
+
+I want dired to sort in the reverse chronological order by default, and also to
+group directories first ([[https://oremacs.com/2015/01/13/dired-options/][details]]).
+
+#+BEGIN_SRC emacs-lisp
+  (setq dired-listing-switches "-lthG --group-directories-first")
+#+END_SRC
+
+* Interface
+** Basics
+
+=crux= has useful functions extracted from Emacs Prelude. Set =C-a= to move to
+the first non-whitespace character on a line, and then to toggle between that
+and the beginning of the line.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package crux
+    :bind (("C-a" . crux-move-beginning-of-line)))
+#+END_SRC
+
+I *never* want whitespace at the end of lines. Remove it on save.
+
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'before-save-hook 'delete-trailing-whitespace)
+#+END_SRC
+
+** Command completion
+
+=smart M-x= suggests =M-x= commands based on recency and frequency. I don't tend
+to use it directly but =counsel= uses it to order suggestions.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package smex)
+#+END_SRC
+
+=ivy= is a generic completion framework which uses the minibuffer. Turning on
+=ivy-mode= enables replacement of lots of built in =ido= functionality.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package ivy
+      :diminish ivy-mode
+      :config
+      (ivy-mode t)
+      (setq ivy-display-style 'fancy))
+#+END_SRC
+
+By default =ivy= starts filters with =^=. I don't normally want that and can
+easily type it manually when I do.
+
+#+BEGIN_SRC emacs-lisp
+  (setq ivy-initial-inputs-alist nil)
+#+END_SRC
+
+=counsel= is a collection of =ivy= enhanced versions of common Emacs commands. I
+haven't bound much as =ivy-mode= takes care of most things.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package counsel
+    :bind (("M-x" . counsel-M-x)))
+#+END_SRC
+
+=swiper= is an =ivy= enhanced version of isearch.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package swiper)
+  (global-set-key (kbd "C-s") 'counsel-grep-or-swiper)
+#+END_SRC
+
+=hydra= presents menus for =ivy= commands.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package ivy-hydra)
+#+END_SRC
+
+** Suggest next key
+
+Suggest next keys to me based on currently entered key combination.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package which-key
+    :diminish which-key-mode
+    :config
+    (add-hook 'after-init-hook 'which-key-mode))
+#+END_SRC
+
+** Better undo
+
+=undo-tree= visualises undo history as a tree for easy navigation.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package undo-tree
+    :defer 5
+    :diminish global-undo-tree-mode
+    :config
+    (global-undo-tree-mode 1))
+#+END_SRC
+
+** Navigation
+
+One of the most important features of an advanced editor is quick text
+navigation. =avy= lets us jump to any character or line quickly.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package avy)
+#+END_SRC
+
+=ace-window= lets us navigate between windows in the same way as =avy=. Once
+activated it has useful sub-modes like =x= to switch into window deletion mode.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package ace-window
+     :config
+     (global-set-key (kbd "C-x o") 'ace-window)
+     (setq aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)))
+#+END_SRC
+
+** Easier selection
+
+=expand-region= expands the region around the cursor semantically depending on
+mode. Hard to describe but a killer feature.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package expand-region
+    :bind ("C-=" . er/expand-region))
+#+END_SRC
+
+* Appearance
+
+Use a (somewhat) muted theme.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package doom-themes
+    :config
+    (load-theme 'doom-nord-light t))
+  (use-package all-the-icons)
+#+END_SRC
+
+Set a nice font.
+
+#+BEGIN_SRC emacs-lisp
+  (set-frame-font "Source Code Pro 12" nil t)
+#+END_SRC
+
+=feebleline= as a minimalist mode line replacement.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package feebleline
+    :custom
+    (feebleline-show-git-branch t)
+    (feebleline-show-dir t)
+    (feebleline-show-time t)
+    (feebleline-show-previous-buffer t)
+    :config
+    (feebleline-mode 1))
+#+END_SRC
+
+Add emoji support. This is useful when working with html.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package emojify)
+#+END_SRC
+
+Sometimes it helps to focus on the thing currently under the cursor. This turns
+off syntax highlighting for everything but the current thing. It's useful
+sometimes but a bit buggy in certain modes. I wonder if I could improve the
+config / find a better alternative?
+
+#+BEGIN_SRC emacs-lisp
+  (use-package focus)
+#+END_SRC
+
+Highlight the current line.
+
+#+BEGIN_SRC emacs-lisp
+  (global-hl-line-mode 1)
+#+END_SRC
+
+* Coding
+** Programming specific interface improvements
+
+When programming I like my editor to try to help me with keeping parentheses
+balanced.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package smartparens
+    :diminish smartparens-mode
+    :hook
+    (prog-mode . smartparens-mode))
+#+END_SRC
+
+Highlight parens etc. for improved readability.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package rainbow-delimiters
+    :hook
+    (prog-mode . rainbow-delimiters-mode))
+#+END_SRC
+
+Highlight strings which represent colours. I only want this in programming
+modes, and I don't want colour names to be highlighted (=x-colors=).
+
+#+BEGIN_SRC emacs-lisp
+  (use-package rainbow-mode
+    :config
+    (setq rainbow-x-colors nil)
+    :hook
+    (prog-mode . rainbow-mode))
+#+END_SRC
+
+Keep things indented correctly for me.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package aggressive-indent)
+#+END_SRC
+
+Expand parentheses for me.
+
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'prog-mode-hook 'electric-pair-mode)
+#+END_SRC
+
+Smart dash guesses _ vs - depending on context.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package smart-dash
+    :config
+    :hook
+    (c-mode . smart-dash-mode)
+    (c++-mode . smart-dash-mode))
+#+END_SRC
+
+Flyspell for comments and strings.
+
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'prog-mode-hook 'flyspell-prog-mode)
+#+END_SRC
+
+** Project management
+
+Projectile handles folders which are in version control.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package projectile
+    :config
+    (projectile-mode))
+#+END_SRC
+
+Tell projectile to integrate with =ivy= for completion.
+
+#+BEGIN_SRC emacs-lisp
+  (setq projectile-completion-system 'ivy)
+#+END_SRC
+
+Add some extra completion options via integration with =counsel=. In particular
+this enables =C-c p SPC= for smart buffer / file search, and =C-c p s s= for
+search via =ag=.
+
+There is no function for projectile-grep, but we could use =counsel-git-grep=
+which is similar. Should I bind that to =C-c p s g=?
+
+#+BEGIN_SRC emacs-lisp
+  (use-package counsel-projectile
+    :config
+    (add-hook 'after-init-hook 'counsel-projectile-mode))
+#+END_SRC
+
+** Fuzzy search
+
+=fzf= is a fuzzy file finder which is very quick.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package fzf)
+#+END_SRC
+
+** Environment management
+
+By default Emacs doesn't read from the same environment variables set in your
+terminal. This package fixes that.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package exec-path-from-shell
+    :config
+    (exec-path-from-shell-initialize))
+#+END_SRC
+
+** Jump to source
+
+Individual language packages often support IDE features like jump to source, but
+=dumb-jump= attempts to support many languages by simple searching. It's quite
+effective even with dynamic libraries like JS and Python.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package dumb-jump
+    :diminish dumb-jump-mode
+    :bind (("C-M-g" . dumb-jump-go)
+           ("C-M-p" . dumb-jump-back)
+           ("C-M-q" . dumb-jump-quick-look)))
+#+END_SRC
+
+** Git
+
+Magit is an awesome interface to git. Summon it with `C-x g`.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package magit
+    :bind ("C-x g" . magit-status))
+#+END_SRC
+
+Display line changes in gutter based on git history. Enable it everywhere.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package git-gutter
+    :config
+    (global-git-gutter-mode 't)
+    :diminish git-gutter-mode)
+#+END_SRC
+
+TimeMachine lets us step through the history of a file as recorded in git.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package git-timemachine)
+#+END_SRC
+
+** Syntax checking
+
+=Flycheck= is a general syntax highlighting framework which other packages hook
+into. It's an improvment on the built in =flymake=.
+
+Setup is pretty simple - we just enable globally and turn on a custom eslint
+function, and also add a custom checker for proselint.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package flycheck
+    :config
+    (add-hook 'after-init-hook 'global-flycheck-mode)
+    (add-to-list 'flycheck-checkers 'proselint)
+    (setq-default flycheck-highlighting-mode 'lines)
+    ;; Define fringe indicator / warning levels
+    (define-fringe-bitmap 'flycheck-fringe-bitmap-ball
+      (vector #b00000000
+              #b00000000
+              #b00000000
+              #b00000000
+              #b00000000
+              #b00000000
+              #b00000000
+              #b00011100
+              #b00111110
+              #b00111110
+              #b00111110
+              #b00011100
+              #b00000000
+              #b00000000
+              #b00000000
+              #b00000000
+              #b00000000))
+    (flycheck-define-error-level 'error
+      :severity 2
+      :overlay-category 'flycheck-error-overlay
+      :fringe-bitmap 'flycheck-fringe-bitmap-ball
+      :fringe-face 'flycheck-fringe-error)
+    (flycheck-define-error-level 'warning
+      :severity 1
+      :overlay-category 'flycheck-warning-overlay
+      :fringe-bitmap 'flycheck-fringe-bitmap-ball
+      :fringe-face 'flycheck-fringe-warning)
+    (flycheck-define-error-level 'info
+      :severity 0
+      :overlay-category 'flycheck-info-overlay
+      :fringe-bitmap 'flycheck-fringe-bitmap-ball
+      :fringe-face 'flycheck-fringe-info))
+    #+END_SRC
+
+Proselint is a syntax checker for English language. This defines a custom
+checker which will run in texty modes.
+
+Proselint is an external program, install it with =pip install proselint= for
+this to work.
+
+#+BEGIN_SRC emacs-lisp
+  (flycheck-define-checker proselint
+    "A linter for prose."
+    :command ("proselint" source-inplace)
+    :error-patterns
+    ((warning line-start (file-name) ":" line ":" column ": "
+              (id (one-or-more (not (any " "))))
+              (message (one-or-more not-newline)
+                       (zero-or-more "\n" (any " ") (one-or-more not-newline)))
+              line-end))
+    :modes (text-mode markdown-mode gfm-mode org-mode))
+#+END_SRC
+
+** Autocomplete
+
+Company mode provides good autocomplete options. Perhaps I should add
+company-quickhelp for documentation
+(https://github.com/expez/company-quickhelp)?
+
+It would also be good to improve integration with yasnippet as I don't feel I'm
+making the best use there.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package company
+    :diminish
+    :config
+    (add-hook 'after-init-hook 'global-company-mode)
+
+    (setq company-idle-delay t)
+
+    (use-package company-anaconda
+      :config
+      (add-to-list 'company-backends 'company-anaconda)))
+#+END_SRC
+
+I don't want suggestions from open files / buffers to be automatically
+lowercased as these are often camelcase function names.
+
+#+BEGIN_SRC emacs-lisp
+  (setq company-dabbrev-downcase nil)
+#+END_SRC
+
+** Snippets
+
+Unlike autocomplete which suggests words / symbols, snippets are pre-prepared
+templates which you fill in.
+
+I'm using a community library
+(=[[https://github.com/AndreaCrotti/yasnippet-snippets]]=) with *lots* of ready made
+options, and have my own directory of custom snippets I've added. Not sure if I
+should unify these by forking =yasnippet-snippets=.
+
+Type the shortcut and press =TAB= to complete, or =M-/= to autosuggest a snippet.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package yasnippet
+      :diminish yas-minor-mode
+      :config
+      (add-to-list 'yas-snippet-dirs "~/.emacs.d/yasnippet-snippets")
+      (add-to-list 'yas-snippet-dirs "~/.emacs.d/snippets")
+      (yas-global-mode)
+      (global-set-key (kbd "M-/") 'company-yasnippet))
+  (use-package yasnippet-snippets)
+#+END_SRC
+
+** Markdown
+
+Markdown support isn't built into Emacs, add it with =markdown-mode=.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package markdown-mode
+    :commands (markdown-mode gfm-mode)
+    :mode (("README\\.md\\'" . gfm-mode)
+           ("\\.md\\'" . markdown-mode)
+           ("\\.markdown\\'" . markdown-mode))
+    :init (setq markdown-command "multimarkdown"))
+#+END_SRC
+
+** Haskell
+
+Install haskell mode.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package haskell-mode)
+#+END_SRC
+
+Code formatting is easier with =hindent=.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package hindent)
+#+END_SRC
+
+Completion is via =ghc-mod= / =company=. Install the former separately with
+=cabal install ghc-mod=.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package ghc
+    :config
+    (add-hook 'haskell-mode-hook (lambda () (ghc-init))))
+
+  (use-package company-ghc
+    :config
+    (add-to-list 'company-backends 'company-ghc))
+#+END_SRC
+
+** Python
+
+Emacs handles python quite well, but we can improve things with anaconda mode.
+
+#+BEGIN_SRC emacs-lisp
+  ;; (use-package anaconda-mode
+  ;;   :config
+  ;;   (add-hook 'python-mode-hook 'anaconda-mode)
+  ;;   (add-hook 'python-mode-hook 'anaconda-eldoc-mode))
+#+END_SRC
+
+Black is an opinionated pyton formatter. Install with =pip install black= so the
+command line tool is available.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package blacken)
+#+END_SRC
+
+IPython as python interpreter.
+
+#+BEGIN_SRC emacs-lisp
+  (when (executable-find "ipython")
+    (setq python-shell-interpreter "ipython"))
+#+END_SRC
+
+** C
+
+Emacs has a great built in C/C++ mode, but we can improve on it with
+=irony-mode= for code completion via =libclang=.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package irony
+    :hook
+    (c-mode . irony-mode)
+    (c++-mode . irony-mode))
+#+END_SRC
+
+Add company mode support.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package company-irony
+    :config
+    (add-to-list 'company-backends 'company-irony))
+#+END_SRC
+
+Add flycheck support.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package flycheck-irony
+    :hook
+    (flycheck-mode . flycheck-irony-setup))
+#+END_SRC
+
+** LaTeX
+
+AUCTeX is probably the best TeX editing system.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package tex
+    :demand t
+    :ensure auctex
+    :config
+      (setq-default TeX-engine 'luatex)
+      (setq-default TeX-PDF-mode t)
+      (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
+      (setq reftex-plug-into-AUCTeX t)
+      (setq reftex-bibliography-commands '("bibliography" "nobibliography" "addbibresource"))
+      (setq reftex-use-external-file-finders t)
+      (setq reftex-external-file-finders
+            '(("tex" . "kpsewhich -format=.tex %f")
+              ("bib" . "kpsewhich -format=.bib %f")))
+      (setq TeX-electric-sub-and-superscrip t)
+      (setq TeX-electric-math (cons "\\(" "\\)"))
+    :hook
+      ((LaTeX-mode . visual-line-mode)
+       (LaTeX-mode . turn-on-auto-fill)
+       (LaTeX-mode . flyspell-mode)
+       (LaTeX-mode . LaTeX-math-mode)
+       (LaTeX-mode . turn-on-reftex)
+       (TeX-after-compilation-finished-functions
+         . TeX-revert-document-buffer)))
+
+  (use-package auctex-latexmk
+    :hook
+      (LaTeX-mode . auctex-latexmk-setup))
+#+END_SRC
+
+Add company mode support.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package company-math
+    :config
+      (setq company-math-allow-unicode-symbols-in-faces
+        '(tex-math font-latex-math-face))
+      (setq company-math-allow-latex-symbols-in-faces nil)
+      (setq company-math-disallow-unicode-symbols-in-faces nil)
+      (add-to-list 'company-backends 'company-math-symbols-unicode)
+      (add-to-list 'company-backends 'company-math-symbols-latex))
+#+END_SRC
+
+* Org
+** General settings.
+
+I should comment on these more...
+
+#+BEGIN_SRC emacs-lisp
+  (setq org-startup-indented 'f)
+  (setq org-directory "~/org")
+  (setq org-special-ctrl-a/e 't)
+  (setq org-default-notes-file (concat org-directory "/notes.org"))
+  (define-key global-map "\C-cc" 'org-capture)
+  (setq org-src-window-setup 'current-window)
+#+END_SRC
+
+** Appearance
+
+Improve the display of bullet points.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package org-bullets
+    :config
+    (setq org-bullets-bullet-list '("∙"))
+    (add-hook 'org-mode-hook 'org-bullets-mode))
+#+END_SRC
+
+Fontify whole line for headings.
+#+BEGIN_SRC emacs-lisp
+  (setq org-fontify-whole-heading-line t)
+#+END_SRC
+
+** Export
+
+Add bootstrap styled export.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package ox-twbs)
+#+END_SRC
+
+Using latexmk as the LaTeX exporter will automatically update the references.
+
+#+BEGIN_SRC
+  (setq org-latex-pdf-process '("latexmk -lualatex -f %f"))
+#+END_SRC
+
+** Babel
+
+Org-babel can be used for literate programming, executing source code within
+org-mode.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package ob-ipython)
+  (org-babel-do-load-languages
+    'org-babel-load-languages
+      '((python . t)
+        (ipython . t)
+        (shell . t)
+        (latex . t)
+        (C . t)))
+#+END_SRC
+
+Syntax highlighting and tabbing in source blocks.
+
+#+BEGIN_SRC emacs-lisp
+  (setq org-src-fontify-natively 't)
+  (setq org-src-tab-acts-natively t)
+#+END_SRC
+
+** RefTeX
+
+Use RefTeX for reference management; =org-ref= does this job excellently,
+however it pulls in helm dependencies which I do not want. This [[https://bastibe.de/2014-09-23-org-cite.html][workaround]] by
+bastibe works pretty well for me.
+
+#+BEGIN_SRC emacs-lisp
+  (org-add-link-type "cite"
+       (defun follow-cite (name)
+         "Open bibliography and jump to appropriate entry.
+          The document must contain \addbibresource{filename} somewhere
+          for this to work"
+         (find-file-other-window
+          (save-excursion
+            (beginning-of-buffer)
+            (save-match-data
+              (re-search-forward "\\\\addbibresource{\\([^}]+\\)}")
+              (concat (match-string 1) ".bib"))))
+         (beginning-of-buffer)
+         (search-forward name))
+       (defun export-cite (path desc format)
+         "Export [[autocite:cohen93]] as \autocite{cohen93} in LaTeX."
+         (if (eq format 'latex)
+             (if (or (not desc) (equal 0 (search "autocite:" desc)))
+                 (format "\\autocite{%s}" path)
+               (format "\\autocite[%s]{%s}" desc path)))))
+#+END_SRC
+
+** Org LaTeX class
+
+Custom org-latex-class for my research notes.
+
+#+BEGIN_SRC emacs-lisp
+  (add-to-list 'org-latex-classes
+               '("notes"
+                 "\\documentclass{article}
+     \\usepackage{mathtools}
+     \\usepackage{physics}
+     \\usepackage{fontspec}
+     \\usepackage{unicode-math}
+     \\usepackage[style=phys, hyperref=true, backref=true, backend=biber]{biblatex}
+     \\usepackage[colorlinks=true, citecolor=red, breaklinks]{hyperref}
+     [NO-DEFAULT-PACKAGES]
+     [PACKAGES]
+                  \\setmainfont{Libertinus Serif}
+                  \\setmathfont{Libertinus Math}
+                  \\setsansfont{Libertinus Sans}"
+                  ("\\section{%s}" . "\\section*{%s}")
+                  ("\\subsection{%s}" . "\\subsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                  ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                  ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
+#+END_SRC
+
+* Extras
+** Writing
+
+=writegood-mode= highlights bad word choices and has functions for calculating
+readability.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package writegood-mode
+    :bind ("C-c g" . writegood-mode)
+    :config
+    (add-to-list 'writegood-weasel-words "actionable"))
+#+END_SRC
+
+** Stack Overflow
+
+SX is a full stack overflow client within Emacs.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package sx
+    :config
+    (bind-keys :prefix "C-c s"
+               :prefix-map my-sx-map
+               :prefix-docstring "Global keymap for SX."
+               ("q" . sx-tab-all-questions)
+               ("i" . sx-inbox)
+               ("o" . sx-open-link)
+               ("u" . sx-tab-unanswered-my-tags)
+               ("a" . sx-ask)
+               ("s" . sx-search)))
+#+END_SRC
+
+** Email
+
+=notmuch= is a fast mail client. Install it externally, e.g. with =brew install
+notmuch= and then use it within emacs.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package notmuch)
+#+END_SRC
+
+** Slack
+
+#+BEGIN_SRC emacs-lisp
+  (use-package slack
+    :commands (slack-start)
+    :init
+    (setq slack-buffer-emojify t)
+    (setq slack-prefer-current-team t)
+    :config
+    (slack-register-team
+     :name "nd-nuclear-theory"
+     :default t
+     :client-id "22bc4276-1554428804.715"
+     :client-secret "sssssssssssssssssssssssssssssssssssss"
+     :token "xoxs-186540753410-598828739232-601725228453-0e43dac469b36fe5c47d03c80cc5fc85fe01db07df9d766da7a3a4aa2cf25e4a"
+     :subscribed-channels '(general ncci-scripting)
+     :full-and-display-names t))
+
+  (use-package alert
+    :commands (alert)
+    :init
+    (setq alert-style-default 'notifier))
+#+END_SRC
+
+#+RESULTS:
+: notifier
+
+** PDF reader
+
+=pdf-tools= is better at this than =doc-view=.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package pdf-tools
+    :ensure t
+    :mode ("\\.pdf\\'" . pdf-view-mode)
+    :config
+    (pdf-tools-install)
+    (setq-default pdf-view-display-size 'fit-page))
+#+END_SRC
+
+** Dash
+
+Modern list api for emacs.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package dash)
+  (use-package dash-functional)
+#+END_SRC
+
+** Dired-X
+
+For hiding . files in dired.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'dired-x)
+  (setq-default dired-omit-files-p t)
+  (setq dired-omit-files (concat dired-omit-files "\\|^\\..+$"))
+#+END_SRC
+
+** Dired hacks
+
+Extra dired functionalities.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package dired-ranger
+    :bind (:map dired-mode-map
+                ("W" . dired-ranger-copy)
+                ("X" . dired-ranger-move)
+                ("Y" . dired-ranger-paste)))
+  (use-package dired-filter
+    :bind (:map dired-mode-map
+                ("F" . dired-filter-map)))
+  (use-package dired-avfs)
+  (use-package dired-rainbow)
+  (use-package dired-collapse)
+  (use-package dired-narrow
+    :bind (:map dired-mode-map
+                ("/" . dired-narrow)))
+  (use-package dired-subtree
+    :bind (:map dired-mode-map
+                ("i" . dired-subtree-insert)
+                ("o" . dired-subtree-remove)))
+#+END_SRC
+
+** Visual fill column
+
+#+BEGIN_SRC emacs-lisp
+  (use-package visual-fill-column
+    :config
+    (setq visual-fill-column-width 80))
+  (add-hook 'prog-mode-hook 'turn-on-visual-line-mode)
+  (add-hook 'text-mode-hook 'turn-on-visual-line-mode)
+#+END_SRC
+
+** Eshell autosuggest
+
+Extend the =pcomplete= framework for =eshell= with completion from =fish=.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package fish-completion
+    :config
+    (global-fish-completion-mode))
+#+END_SRC
+
+=Fish=-like history autosuggestions for =eshell=.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package esh-autosuggest
+    :hook
+    (eshell-mode . esh-autosuggest-mode))
+#+END_SRC
