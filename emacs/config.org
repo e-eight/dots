@@ -880,6 +880,15 @@ Custom org-latex-class for my research notes.
 #+END_SRC
 
 * Extras
+
+** EasyPG
+
+Protecting my secrets.
+
+#+BEGIN_SRC emacs-lisp
+  (setq epg-gpg-program "gpg2")
+#+END_SRC
+
 ** Writing
 
 =writegood-mode= highlights bad word choices and has functions for calculating
@@ -928,14 +937,7 @@ notmuch= and then use it within emacs.
     (setq slack-buffer-emojify t)
     (setq slack-prefer-current-team t)
     :config
-    (slack-register-team
-     :name "nd-nuclear-theory"
-     :default t
-     :client-id "22bc4276-1554428804.715"
-     :client-secret "sssssssssssssssssssssssssssssssssssss"
-     :token "xoxs-186540753410-598828739232-601725228453-0e43dac469b36fe5c47d03c80cc5fc85fe01db07df9d766da7a3a4aa2cf25e4a"
-     :subscribed-channels '(general ncci-scripting)
-     :full-and-display-names t))
+    (load "~/dotfiles/emacs/slack-config.el"))
 
   (use-package alert
     :commands (alert)
