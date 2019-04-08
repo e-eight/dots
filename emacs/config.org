@@ -85,7 +85,7 @@ startup increases speed (from 11.0s -> 9.7s when I tested).
   (defun find-config ()
     "Edit config.org"
     (interactive)
-    (find-file "~/dotfiles/emacs/config.org"))
+    (find-file "~/dots/emacs/config.org"))
 
   (global-set-key (kbd "C-c I") 'find-config)
 #+END_SRC
