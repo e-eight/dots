@@ -880,7 +880,6 @@ Custom org-latex-class for my research notes.
 #+END_SRC
 
 * Extras
-
 ** EasyPG
 
 Protecting my secrets.
