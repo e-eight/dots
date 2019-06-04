@@ -135,6 +135,7 @@ Let's turn off unwanted window decoration.
   (tool-bar-mode -1)
   (scroll-bar-mode -1)
   (menu-bar-mode -1)
+  (fset 'menu-bar-open nil)
 #+END_SRC
 
 I don't want the error bell.
@@ -317,17 +318,21 @@ Set a nice font.
   (set-frame-font "Source Code Pro 12" nil t)
 #+END_SRC
 
-=feebleline= as a minimalist mode line replacement.
+=moody= + =minions= as an attractive minimalist mode line replacement.
+=feebleline= is a great option too, but it has been a hit and miss for me.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package feebleline
-    :custom
-    (feebleline-show-git-branch t)
-    (feebleline-show-dir t)
-    (feebleline-show-time t)
-    (feebleline-show-previous-buffer t)
+  (use-package minions
     :config
-    (feebleline-mode 1))
+    (setq minions-mode-line-lighter "[+]")
+    (minions-mode 1))
+
+  (use-package moody
+    :config
+    (moody-replace-mode-line-buffer-identification)
+    (moody-replace-vc-mode)
+    (setq-default x-underline-at-descent-line t
+                  column-number-mode t))
 #+END_SRC
 
 Add emoji support. This is useful when working with html.
@@ -479,6 +484,7 @@ Magit is an awesome interface to git. Summon it with `C-x g`.
 
 #+BEGIN_SRC emacs-lisp
   (use-package magit
+    :config (setq magit-branch-read-upstream-first 'fallback)
     :bind ("C-x g" . magit-status))
 #+END_SRC
 
@@ -722,6 +728,7 @@ AUCTeX is probably the best TeX editing system.
     :config
       (setq-default TeX-engine 'luatex)
       (setq-default TeX-PDF-mode t)
+      (setq-default TeX-master nil)
       (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
       (setq reftex-plug-into-AUCTeX t)
       (setq reftex-bibliography-commands '("bibliography" "nobibliography" "addbibresource"))
@@ -957,7 +964,7 @@ notmuch= and then use it within emacs.
     :mode ("\\.pdf\\'" . pdf-view-mode)
     :config
     (pdf-tools-install)
-    (setq-default pdf-view-display-size 'fit-page))
+    (setq-default pdf-view-display-size 'fit-width))
 #+END_SRC
 
 ** Dash
