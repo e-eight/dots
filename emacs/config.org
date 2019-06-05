@@ -584,6 +584,7 @@ making the best use there.
   (use-package company
     :diminish
     :config
+    (setq company-tooltip-align-annotations t)
     (add-hook 'after-init-hook 'global-company-mode)
 
     (setq company-idle-delay t)
@@ -756,12 +757,9 @@ Add company mode support.
 #+BEGIN_SRC emacs-lisp
   (use-package company-math
     :config
-      (setq company-math-allow-unicode-symbols-in-faces
-        '(tex-math font-latex-math-face))
-      (setq company-math-allow-latex-symbols-in-faces nil)
-      (setq company-math-disallow-unicode-symbols-in-faces nil)
-      (add-to-list 'company-backends 'company-math-symbols-unicode)
-      (add-to-list 'company-backends 'company-math-symbols-latex))
+    (setq company-math-allow-latex-symbols-in-faces t)
+    (setq company-math-disallow-unicode-symbols-in-faces t)
+    (add-to-list 'company-backends 'company-math-symbols-latex))
 #+END_SRC
 
 * Org
@@ -964,6 +962,12 @@ notmuch= and then use it within emacs.
     :config
     (pdf-tools-install)
     (setq-default pdf-view-display-size 'fit-width))
+#+END_SRC
+
+** Djvu reader
+
+#+BEGIN_SRC emacs-lisp
+  (use-package djvu)
 #+END_SRC
 
 ** Dash
