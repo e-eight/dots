@@ -135,7 +135,6 @@ Let's turn off unwanted window decoration.
   (tool-bar-mode -1)
   (scroll-bar-mode -1)
   (menu-bar-mode -1)
-  (fset 'menu-bar-open nil)
 #+END_SRC
 
 I don't want the error bell.

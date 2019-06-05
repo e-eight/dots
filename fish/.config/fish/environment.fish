@@ -6,4 +6,4 @@ set -gx BROWSER qutebrowser
 set PATH ~/bin $PATH
 set PATH ~/.local/bin $PATH
 set PATH ~/anaconda3/bin $PATH
-set PATH ~/.local/texlive/2018/bin/x86_64-linux $PATH
+set PATH ~/.local/texlive/2019/bin/x86_64-linux $PATH
