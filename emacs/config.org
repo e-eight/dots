@@ -940,7 +940,7 @@ notmuch= and then use it within emacs.
     (setq slack-buffer-emojify t)
     (setq slack-prefer-current-team t)
     :config
-    (load "~/dotfiles/emacs/slack-config.el"))
+    (load "~/dots/emacs/slack-config.el"))
 
   (use-package alert
     :commands (alert)
