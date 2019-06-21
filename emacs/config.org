@@ -422,7 +422,9 @@ Projectile handles folders which are in version control.
 #+BEGIN_SRC emacs-lisp
   (use-package projectile
     :config
-    (projectile-mode))
+    (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
+    (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+    (projectile-mode 1))
 #+END_SRC
 
 Tell projectile to integrate with =ivy= for completion.
