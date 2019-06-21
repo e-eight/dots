@@ -704,9 +704,11 @@ Emacs has a great built in C/C++ mode, but we can improve on it with
 Add company mode support.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package company-irony
-    :config
-    (add-to-list 'company-backends 'company-irony))
+  (use-package company-irony)
+  (use-package company-irony-c-headers)
+  (eval-after-load 'company
+    '(add-to-list 'company-backends
+                  '(company-irony-c-headers company-irony))
 #+END_SRC
 
 Add flycheck support.
