@@ -422,7 +422,9 @@ Projectile handles folders which are in version control.
 #+BEGIN_SRC emacs-lisp
   (use-package projectile
     :config
-    (projectile-mode))
+    (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
+    (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+    (projectile-mode 1))
 #+END_SRC
 
 Tell projectile to integrate with =ivy= for completion.
@@ -694,11 +696,34 @@ IPython as python interpreter.
 Emacs polyglot.
 
 #+BEGIN_SRC emacs-lisp
+<<<<<<< HEAD
   (use-package eglot
     :commands
     (eglot eglot-ensure)
     :config
     (add-to-list 'eglot-server-programs '((c-mode c++-mode) "ccls"))
+=======
+  (use-package irony
+    :hook
+    (c-mode . irony-mode)
+    (c++-mode . irony-mode))
+#+END_SRC
+
+Add company mode support.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package company-irony)
+  (use-package company-irony-c-headers)
+  (eval-after-load 'company
+    '(add-to-list 'company-backends
+                  '(company-irony-c-headers company-irony)))
+#+END_SRC
+
+Add flycheck support.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package flycheck-irony
+>>>>>>> f0c2450f77f955e4377b330ad973a01b387643a0
     :hook
     (c-mode . eglot-ensure)
     (c++-mode . eglot-ensure))
