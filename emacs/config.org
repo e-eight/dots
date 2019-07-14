@@ -399,16 +399,6 @@ Expand parentheses for me.
   (add-hook 'prog-mode-hook 'electric-pair-mode)
 #+END_SRC
 
-Smart dash guesses _ vs - depending on context.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package smart-dash
-    :config
-    :hook
-    (c-mode . smart-dash-mode)
-    (c++-mode . smart-dash-mode))
-#+END_SRC
-
 Flyspell for comments and strings.
 
 #+BEGIN_SRC emacs-lisp
@@ -639,42 +629,40 @@ Markdown support isn't built into Emacs, add it with =markdown-mode=.
     :init (setq markdown-command "multimarkdown"))
 #+END_SRC
 
-** Haskell
+** LSP
 
-Install haskell mode.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package haskell-mode)
-#+END_SRC
-
-Code formatting is easier with =hindent=.
+Emacs client for language server protocol (LSP). =lsp-ui= provides flycheck
+integration, =dap-mode= provides debugger support.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package hindent)
-#+END_SRC
+  (use-package lsp-mode
+    :hook
+    ((c-mode c++-mode) . lsp)
+    :custom
+    (lsp-prefer-flymake nil))
 
-Completion is via =ghc-mod= / =company=. Install the former separately with
-=cabal install ghc-mod=.
+  (use-package lsp-ui)
+  (use-package company-lsp)
+  (use-package lsp-treemacs
+    :after (lsp-mode treemacs))
 
-#+BEGIN_SRC emacs-lisp
-  (use-package ghc
-    :config
-    (add-hook 'haskell-mode-hook (lambda () (ghc-init))))
-
-  (use-package company-ghc
-    :config
-    (add-to-list 'company-backends 'company-ghc))
+  (use-package dap-mode
+  :after lsp-mode
+  :config
+  (dap-mode t)
+  (dap-ui-mode t))
 #+END_SRC
 
 ** Python
 
-Emacs handles python quite well, but we can improve things with anaconda mode.
+Apparently =pyls= (Python server for =lsp-mode=) has some issues, so keeping =anaconda-mode= around
+for the time being.
 
 #+BEGIN_SRC emacs-lisp
-  ;; (use-package anaconda-mode
-  ;;   :config
-  ;;   (add-hook 'python-mode-hook 'anaconda-mode)
-  ;;   (add-hook 'python-mode-hook 'anaconda-eldoc-mode))
+  (use-package anaconda-mode
+    :hook
+    (python-mode . 'anaconda-mode)
+    (python-mode . 'anaconda-eldoc-mode))
 #+END_SRC
 
 Black is an opinionated pyton formatter. Install with =pip install black= so the
@@ -691,19 +679,28 @@ IPython as python interpreter.
     (setq python-shell-interpreter "ipython"))
 #+END_SRC
 
-** Eglot
+** C/C++
 
-Emacs polyglot.
+C/C++ server for =lsp-mode=. Need to install =ccls= on the system first.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package eglot
-    :commands
-    (eglot eglot-ensure)
+  (use-package ccls
+    :after projectile
+    :custom
+    (ccls-args nil)
+    (ccls-executable (executable-find "ccls"))
+    (projectile-project-root-files-top-down-recurring
+     (append '(".ccls")
+             projectile-project-root-files-top-down-recurring))
     :config
-    (add-to-list 'eglot-server-programs '((c-mode c++-mode) "ccls"))
-    :hook
-    (c-mode . eglot-ensure)
-    (c++-mode . eglot-ensure))
+    (add-to-list 'projectile-globally-ignored-directories ".ccls-cache"))
+#+END_SRC
+
+#+BEGIN_SRC emacs-lisp
+  (use-package dumb-jump
+    :config
+    (setq dumb-jump-selector 'ivy)
+    (setq dumb-jump-aggressive nil))
 #+END_SRC
 
 ** LaTeX
@@ -940,9 +937,6 @@ notmuch= and then use it within emacs.
     (setq alert-style-default 'notifier))
 #+END_SRC
 
-#+RESULTS:
-: notifier
-
 ** PDF reader
 
 =pdf-tools= is better at this than =doc-view=.
@@ -1002,8 +996,39 @@ Extra dired functionalities.
                 ("/" . dired-narrow)))
   (use-package dired-subtree
     :bind (:map dired-mode-map
-                ("i" . dired-subtree-insert)
-                ("o" . dired-subtree-remove)))
+                ("<tab>" . dired-subtree-insert)
+                ("<backtab>" . dired-subtree-remove)))
+#+END_SRC
+
+** Treemacs
+
+Tree navigation.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package treemacs
+    :config
+    (setq treemacs-follow-mode t)
+    (setq treemacs-filewatch-mode t)
+    (setq treemacs-fringe-indicator-mode t)
+    (bind-keys :prefix "C-c t"
+               :prefix-map my-treemacs-map
+               :prefix-docstring "Global keymap for treemacs."
+               ("t" . treemacs)
+               ("o" . treemacs-select-window)
+               ("b" . treemacs-bookmark)
+               ("f" . treemacs-find-file)
+               ("a" . treemacs-find-tag)))
+
+  (use-package treemacs-projectile
+    :after treemacs projectile)
+
+  (use-package treemacs-icons-dired
+    :after treemacs dired
+    :config
+    (setq treemacs-icons-dired-mode t))
+
+  (use-package treemacs-magit
+    :after treemacs magit)
 #+END_SRC
 
 ** Visual fill column
@@ -1011,9 +1036,10 @@ Extra dired functionalities.
 #+BEGIN_SRC emacs-lisp
   (use-package visual-fill-column
     :config
-    (setq visual-fill-column-width 80))
-  (add-hook 'prog-mode-hook 'turn-on-visual-line-mode)
-  (add-hook 'text-mode-hook 'turn-on-visual-line-mode)
+    (setq visual-fill-column-width 80)
+    :hook
+    (prog-mode . turn-on-visual-line-mode)
+    (text-mode . turn-on-visual-line-mode))
 #+END_SRC
 
 ** Eshell autosuggest
