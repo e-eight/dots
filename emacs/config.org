@@ -240,6 +240,8 @@ haven't bound much as =ivy-mode= takes care of most things.
 #+BEGIN_SRC emacs-lisp
   (use-package swiper)
   (global-set-key (kbd "C-s") 'counsel-grep-or-swiper)
+  (global-set-key (kbd "M-s") 'isearch-forward)
+  (global-set-key (kbd "M-r") 'isearch-backward)
 #+END_SRC
 
 =hydra= presents menus for =ivy= commands.
