@@ -304,6 +304,14 @@ mode. Hard to describe but a killer feature.
 
 * Appearance
 
+Add a dashboard.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package dashboard
+    :config
+    (dashboard-setup-startup-hook))
+#+END_SRC
+
 Use a (somewhat) muted theme.
 
 #+BEGIN_SRC emacs-lisp
@@ -639,39 +647,41 @@ integration, =dap-mode= provides debugger support.
 #+BEGIN_SRC emacs-lisp
   (use-package lsp-mode
     :hook
-    ((c-mode c++-mode) . lsp)
-    :custom
-    (lsp-prefer-flymake nil))
+    (prog-mode . lsp)
+    :commands lsp
+    :init
+    (setq lsp-enable-snippet t)
+    (setq lsp-enable-file-watchers t)
+    (setq lsp-auto-configure t)
+    (setq lsp-prefer-flymake nil))
 
-  (use-package lsp-ui)
-  (use-package company-lsp)
+  (use-package lsp-ui
+    :commands lsp-ui
+    :init
+    (setq lsp-ui-sideline-show-symbol t)
+    (setq lsp-ui-sideline-show-hover t)
+    (setq lsp-ui-sideline-enable nil)
+    (setq lsp-ui-peek-enable t))
+
+  (use-package company-lsp :commands company-lsp)
+
   (use-package lsp-treemacs
-    :after (lsp-mode treemacs))
+    :after (lsp-mode treemacs)
+    :commands lsp-treemacs-errors-list)
 
   (use-package dap-mode
-  :after lsp-mode
-  :config
-  (dap-mode t)
-  (dap-ui-mode t))
+    :after lsp-mode
+    :config
+    (dap-mode t)
+    (dap-ui-mode t))
 #+END_SRC
 
 ** Python
 
-Apparently =pyls= (Python server for =lsp-mode=) has some issues, so keeping =anaconda-mode= around
-for the time being.
+Integrating jupyter into org-mode.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package anaconda-mode
-    :hook
-    (python-mode . 'anaconda-mode)
-    (python-mode . 'anaconda-eldoc-mode))
-#+END_SRC
-
-Black is an opinionated pyton formatter. Install with =pip install black= so the
-command line tool is available.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package blacken)
+  (use-package jupyter)
 #+END_SRC
 
 IPython as python interpreter.
@@ -679,6 +689,17 @@ IPython as python interpreter.
 #+BEGIN_SRC emacs-lisp
   (when (executable-find "ipython")
     (setq python-shell-interpreter "ipython"))
+#+END_SRC
+
+** R
+
+Emacs Speaks Statistics for R.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package ess)
+  (use-package ess-R-data-view)
+  (use-package ess-smart-equals)
+  (use-package ess-smart-underscore)
 #+END_SRC
 
 ** C/C++
@@ -692,10 +713,10 @@ C/C++ server for =lsp-mode=. Need to install =ccls= on the system first.
     (ccls-args nil)
     (ccls-executable (executable-find "ccls"))
     (projectile-project-root-files-top-down-recurring
-     (append '(".ccls")
+     (append '("compile_commands.json" ".ccls")
              projectile-project-root-files-top-down-recurring))
     :config
-    (add-to-list 'projectile-globally-ignored-directories ".ccls-cache"))
+    (push ".ccls-cache" projectile-globally-ignored-directories))
 #+END_SRC
 
 #+BEGIN_SRC emacs-lisp
@@ -774,7 +795,8 @@ Improve the display of bullet points.
   (use-package org-bullets
     :config
     (setq org-bullets-bullet-list '("∙"))
-    (add-hook 'org-mode-hook 'org-bullets-mode))
+    :hook
+    (org-bullets . org-mode))
 #+END_SRC
 
 Fontify whole line for headings.
@@ -802,11 +824,11 @@ Org-babel can be used for literate programming, executing source code within
 org-mode.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package ob-ipython)
   (org-babel-do-load-languages
     'org-babel-load-languages
       '((python . t)
         (ipython . t)
+        (jupyter . t)
         (shell . t)
         (latex . t)
         (C . t)))
@@ -949,7 +971,9 @@ notmuch= and then use it within emacs.
     :mode ("\\.pdf\\'" . pdf-view-mode)
     :config
     (pdf-tools-install)
-    (setq-default pdf-view-display-size 'fit-width))
+    (setq-default pdf-view-display-size 'fit-width)
+    :hook
+    (pdf-view . pdf-links-minor-mode))
 #+END_SRC
 
 ** Djvu reader
@@ -998,8 +1022,8 @@ Extra dired functionalities.
                 ("/" . dired-narrow)))
   (use-package dired-subtree
     :bind (:map dired-mode-map
-                ("<tab>" . dired-subtree-insert)
-                ("<backtab>" . dired-subtree-remove)))
+                ("<tab>" . dired-subtree-toggle)
+                ("<backtab>" . dired-subtree-cycle)))
 #+END_SRC
 
 ** Treemacs
