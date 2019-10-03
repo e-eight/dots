@@ -179,7 +179,13 @@ I want dired to sort in the reverse chronological order by default, and also to
 group directories first ([[https://oremacs.com/2015/01/13/dired-options/][details]]).
 
 #+BEGIN_SRC emacs-lisp
-  (setq dired-listing-switches "-lthG --group-directories-first")
+  (setq dired-listing-switches "-lathG --group-directories-first")
+#+END_SRC
+
+I want the =delete-selection-mode= to be active by default.
+
+#+BEGIN_SRC emacs-lisp
+  (delete-selection-mode 1)
 #+END_SRC
 
 * Interface
@@ -317,7 +323,7 @@ Use a (somewhat) muted theme.
 #+BEGIN_SRC emacs-lisp
   (use-package doom-themes
     :config
-    (load-theme 'doom-nord-light t))
+    (load-theme 'doom-peacock t))
   (use-package all-the-icons)
 #+END_SRC
 
@@ -587,13 +593,9 @@ making the best use there.
     :diminish
     :config
     (setq company-tooltip-align-annotations t)
-    (add-hook 'after-init-hook 'global-company-mode)
-
     (setq company-idle-delay t)
-
-    (use-package company-anaconda
-      :config
-      (add-to-list 'company-backends 'company-anaconda)))
+    :hook
+    (after-init . global-company-mode))
 #+END_SRC
 
 I don't want suggestions from open files / buffers to be automatically
@@ -830,7 +832,6 @@ org-mode.
      (latex . t)
      (C . t)
      (python . t)
-     (ipython . t)
      (jupyter . t)))
   (org-babel-jupyter-override-src-block "python")
 #+END_SRC
