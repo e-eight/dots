@@ -1,0 +1,216 @@
+# Variables
+# Paths
+set $HOME /home/soham
+
+# Mod Keys
+set $mod Mod4
+set $alt Mod1
+
+# Programs
+set $terminal kitty
+set $browser qutebrowser
+set $editor emacs
+set $clipboard copyq
+
+# Colors
+set $darkblack #000000
+set $black #212121
+set $gray #424242
+set $orange #CC5500
+set $accent #2979FF
+set $urgent #FF3D00
+
+# Layout
+set $border_width 2
+
+# Workspaces
+set $ws1 "1"
+set $ws2 "2"
+set $ws3 "3"
+set $ws4 "4"
+set $ws5 "5"
+set $ws6 "6"
+set $ws7 "7"
+set $ws8 "8"
+set $ws9 "9"
+set $ws0 "10"
+
+
+# Key Bindings
+# i3
+# Restart (preserves layout/session, can be used when upgrading i3)
+bindsym $mod+Shift+r restart
+
+# Lock screen
+bindsym $mod+Shift+z exec i3lock --color "$black"
+
+# Exit (logs out of your X session)
+bindsym $mod+Shift+x exec "i3-nagbar -t warning -m 'You pressed the exit shortcut. Do you really want to exit i3? This will end your X session.' -b 'Yes, exit i3' 'i3-msg exit'"
+
+# Toggle bar
+#bindsym $mod+y exec polybar example mode toggle
+
+
+# System
+# Audio control
+#bindsym XF86AudioRaiseVolume exec amixer set Master 5%+
+#bindsym XF86AudioLowerVolume exec amixer set Master 5%-
+#bindsym XF86AudioMute exec amixer set Master toggle
+#
+## Mic control
+#bindsym Shift+XF86AudioRaiseVolume exec amixer set Capture 9%+
+#bindsym Shift+XF86AudioLowerVolume exec amixer set Capture 9%-
+#bindsym XF86AudioMicMute exec amixer set Capture toggle
+
+# Print screen: full | select window or rectangle
+bindsym Print exec scrot -e 'mv $f ~/Pictures/Screenshots/'
+bindsym $alt+Print exec scrot -s -e 'mv $f ~/Pictures/Screenshots/'
+
+
+# Workspace
+# Go to workspace
+bindsym $mod+1 workspace $ws1
+bindsym $mod+2 workspace $ws2
+bindsym $mod+3 workspace $ws3
+bindsym $mod+4 workspace $ws4
+bindsym $mod+5 workspace $ws5
+bindsym $mod+6 workspace $ws6
+bindsym $mod+7 workspace $ws7
+bindsym $mod+8 workspace $ws8
+bindsym $mod+9 workspace $ws9
+bindsym $mod+0 workspace $ws0
+
+# Move focused container to workspace
+bindsym $mod+Shift+1 move container to workspace $ws1
+bindsym $mod+Shift+2 move container to workspace $ws2
+bindsym $mod+Shift+3 move container to workspace $ws3
+bindsym $mod+Shift+4 move container to workspace $ws4
+bindsym $mod+Shift+5 move container to workspace $ws5
+bindsym $mod+Shift+6 move container to workspace $ws6
+bindsym $mod+Shift+7 move container to workspace $ws7
+bindsym $mod+Shift+8 move container to workspace $ws8
+bindsym $mod+Shift+9 move container to workspace $ws9
+bindsym $mod+Shift+0 move container to workspace $ws0
+
+# Back and forth between last two workspaces
+bindsym $mod+Tab workspace back_and_forth
+workspace_auto_back_and_forth yes
+
+# Change container layout to stacked | tabbed | toggle split
+bindsym $mod+l layout stacking
+bindsym $mod+o layout tabbed
+bindsym $mod+i layout toggle split
+
+# Split in horizontal | vertical orientation
+bindsym $mod+h split h
+bindsym $mod+v split v
+
+# Toggle tiling | floating
+bindsym $mod+Shift+space floating toggle
+# Mouse + $mod to drag floating windows
+floating_modifier $mod
+
+
+# Window
+# Move focus
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+bindsym $mod+Down focus down
+bindsym $mod+Left focus left
+
+# Move focused window
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Left move left
+
+# Toggle fullscreen for focused container
+bindsym $mod+f fullscreen
+
+# Open Rofi (program launcher)
+bindsym $mod+r exec rofi -show run -lines 5 -width 30 -padding 20 -font "Iosevka 15" -separator-style "none" -hide-scrollbar -theme solarized
+
+# Open terminal | browser | editor | clipboard
+bindsym $mod+Return exec $terminal
+bindsym $mod+b exec $browser
+bindsym $mod+e exec $terminal -e $editor
+bindsym $mod+c exec $clipboard show
+
+# Kill focused window
+bindsym $mod+Shift+q kill
+
+# Resize window (you can also use the mouse for that)
+mode "resize" {
+	# these bindings trigger as soon as you enter "resize" mode
+	# up: height--, down: height++, left:  width--, right: width++
+	bindsym Up resize shrink height 10 px or 10 ppt
+	bindsym Right resize grow width 10 px or 10 ppt
+	bindsym Left resize shrink width 10 px or 10 ppt
+	bindsym Down resize grow height 10 px or 10 ppt
+
+	# back to default mode
+	bindsym Return mode "default"
+	bindsym Escape mode "default"
+}
+bindsym $mod+d mode "resize"
+
+# Mathematica
+# bindsym $mod+w exec Mathematica
+
+# Settings
+#bar {
+#	font pango: Source Code Pro 10
+#	position top
+#	#mode hide
+#
+#	# Command for showing status info
+#	status_command i3blocks -c ~/.config/i3/i3blocks.conf
+#
+#	colors {
+#		background $darkblack
+#		statusline $orange
+#		separator $accent
+#
+#		# ---| border | bg | fg |---
+#		focused_workspace $darkblack $orange $darkblack
+#		active_workspace $black $black $gray
+#		inactive_workspace $darkblack $darkblack $gray
+#		urgent_workspace $black $black $urgent
+#	}
+#}
+
+# System font
+font pango: Iosevka 10
+
+# Window colors
+client.focused $black $black $accent $gray
+client.focused_inactive $black $black $gray $gray
+client.unfocused $black $black $gray $gray
+client.urgent $black $black $urgent $gray
+
+# Remove titlebar and hide window edges
+for_window [class="^.*"] border pixel $border_width
+#hide_edge_borders both
+
+# Gaps
+gaps inner 10
+smart_gaps on
+
+# Assign programs to workspaces
+assign [class="Mathematica"] $ws5
+
+# Prepare background
+exec_always feh --bg-scale $HOME/Pictures/Glasgow.png
+
+# Start compton daemon
+exec_always --no-startup-id compton -b
+
+# xsel clipboard sync
+bindsym $mod+y exec xsel | xsel -b
+
+# Start polybar
+exec_always --no-startup-id killall polybar; polybar example -c "$HOME/.config/i3/polybar.conf"
+
+# Keyboard layout
+exec_always setxkbmap us -variant colemak
+bindsym $mod+Shift+m exec setxkbmap us -variant colemak
