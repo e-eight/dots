@@ -9,7 +9,7 @@ set $alt Mod1
 # Programs
 set $terminal kitty
 set $browser firefox
-set $editor emacs
+set $editor zile
 
 # Colors
 set $darkblack #000000
@@ -126,6 +126,11 @@ bindsym $mod+Shift+Left move left
 # Toggle fullscreen for focused container
 bindsym $mod+f fullscreen
 
+# Toggle keyboard layout
+exec_always setxkbmap us -variant colemak
+bindsym $mod+m exec setxkpmap us
+bindsym $mod+Shift+m exec setxkbmap us -variant colemak
+
 # Open Rofi (program launcher)
 bindsym $mod+r exec rofi -show run -lines 5 -width 30 -padding 20 -font "Iosevka 15" -separator-style "none" -hide-scrollbar -theme Monokai
 
@@ -134,8 +139,14 @@ bindsym $mod+Return exec $terminal
 bindsym $mod+b exec $browser
 bindsym $mod+e exec $terminal -e $editor
 
+# xsel clipboard sync
+bindsym $mod+y exec xsel | xsel -b
+
 # Kill focused window
 bindsym $mod+Shift+q kill
+
+# Lock screen
+bindsym XF86ScreenSaver exec i3lock -i $HOME/Pictures/minimalistic_rubik_cube_1366.png
 
 # Resize window (you can also use the mouse for that)
 mode "resize" {
@@ -151,31 +162,6 @@ mode "resize" {
 	bindsym Escape mode "default"
 }
 bindsym $mod+d mode "resize"
-
-# Mathematica
-# bindsym $mod+w exec Mathematica
-
-# Settings
-#bar {
-#	font pango: Source Code Pro 10
-#	position top
-#	#mode hide
-#
-#	# Command for showing status info
-#	status_command i3blocks -c ~/.config/i3/i3blocks.conf
-#
-#	colors {
-#		background $darkblack
-#		statusline $orange
-#		separator $accent
-#
-#		# ---| border | bg | fg |---
-#		focused_workspace $darkblack $orange $darkblack
-#		active_workspace $black $black $gray
-#		inactive_workspace $darkblack $darkblack $gray
-#		urgent_workspace $black $black $urgent
-#	}
-#}
 
 # System font
 font pango: Iosevka 10
@@ -194,21 +180,11 @@ for_window [class="^.*"] border pixel $border_width
 gaps inner 10
 smart_gaps on
 
-# Assign programs to workspaces
-assign [class="Mathematica"] $ws5
-
 # Prepare background
 exec_always feh --bg-fill $HOME/Pictures/CMYK_1.png
 
 # Start compton daemon
 exec_always --no-startup-id compton -b
 
-# xsel clipboard sync
-bindsym $mod+y exec xsel | xsel -b
-
 # Start polybar
-exec_always --no-startup-id killall polybar; polybar example -c "$HOME/.config/i3/polybar.conf"
-
-# Keyboard layout
-exec_always setxkbmap us -variant colemak
-bindsym $mod+Shift+m exec setxkbmap us -variant colemak
+exec_always --no-startup-id killall polybar; polybar top -c "$HOME/.config/polybar/polybar.conf"

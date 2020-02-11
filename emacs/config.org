@@ -19,13 +19,13 @@ Add repositories from which we'll load packages.
 
 ** Bootstrap use-package
 
-If =use-package= is not installed, install it.
+Install =use-package=, if it is not already installed.
 
 #+BEGIN_SRC emacs-lisp
   (package-initialize)
   (unless (package-installed-p 'use-package)
+    (package-refresh-contents)
     (package-install 'use-package))
-  (require 'use-package)
 #+END_SRC
 
 By default all packages should be installed from package manager as that's the
@@ -679,13 +679,31 @@ integration, =dap-mode= provides debugger support.
 
 ** Python
 
-Integrating jupyter into org-mode.
+Control =conda= environments from Emacs.
+#+BEGIN_SRC emacs-lisp
+  (use-package conda
+    :init
+    (conda-env-initialize-interactive-shells)
+    (conda-env-initialize-eshell)
+    :config
+    (conda-env-autoactivate-mode t)
+    (setq conda-anaconda-home (expand-file-name "~/miniconda3"))
+    (setq conda-env-home-directory (expand-file-name "~/miniconda3")))
+#+END_SRC
+
+Integrating =jupyter= into =org-mode=.
 
 #+BEGIN_SRC emacs-lisp
   (use-package jupyter)
 #+END_SRC
 
-IPython as python interpreter.
+Running =jupyter= notebook directly from emacs.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package ein)
+#+END_SRC
+
+=IPython= as python interpreter.
 
 #+BEGIN_SRC emacs-lisp
   (when (executable-find "ipython")
@@ -736,31 +754,32 @@ AUCTeX is probably the best TeX editing system.
     :demand t
     :ensure auctex
     :config
-      (setq-default TeX-engine 'luatex)
-      (setq-default TeX-PDF-mode t)
-      (setq-default TeX-master nil)
-      (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
-      (setq reftex-plug-into-AUCTeX t)
-      (setq reftex-bibliography-commands '("bibliography" "nobibliography" "addbibresource"))
-      (setq reftex-use-external-file-finders t)
-      (setq reftex-external-file-finders
-            '(("tex" . "kpsewhich -format=.tex %f")
-              ("bib" . "kpsewhich -format=.bib %f")))
-      (setq reftex-insert-label-flags '("s" "sft" "e"))
-      (setq TeX-electric-sub-and-superscrip t)
-      (setq TeX-electric-math (cons "\\(" "\\)"))
+    (setq-default TeX-engine 'luatex)
+    (setq-default TeX-PDF-mode t)
+    (setq-default TeX-master nil)
+    (setq TeX-parse-self t)
+    (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
+    (setq reftex-plug-into-AUCTeX t)
+    (setq reftex-bibliography-commands '("bibliography" "nobibliography" "addbibresource"))
+    (setq reftex-use-external-file-finders t)
+    (setq reftex-external-file-finders
+          '(("tex" . "kpsewhich -format=.tex %f")
+            ("bib" . "kpsewhich -format=.bib %f")))
+    (setq reftex-insert-label-flags '("s" "sft" "e"))
+    (setq TeX-electric-sub-and-superscrip t)
+    (setq TeX-electric-math (cons "\\(" "\\)"))
     :hook
-      ((LaTeX-mode . visual-line-mode)
-       (LaTeX-mode . turn-on-auto-fill)
-       (LaTeX-mode . flyspell-mode)
-       (LaTeX-mode . LaTeX-math-mode)
-       (LaTeX-mode . turn-on-reftex)
-       (TeX-after-compilation-finished-functions
-         . TeX-revert-document-buffer)))
+    ((LaTeX-mode . visual-line-mode)
+     (LaTeX-mode . turn-on-auto-fill)
+     (LaTeX-mode . flyspell-mode)
+     (LaTeX-mode . LaTeX-math-mode)
+     (LaTeX-mode . turn-on-reftex)
+     (TeX-after-compilation-finished-functions
+      . TeX-revert-document-buffer)))
 
   (use-package auctex-latexmk
     :hook
-      (LaTeX-mode . auctex-latexmk-setup))
+    (LaTeX-mode . auctex-latexmk-setup))
 #+END_SRC
 
 Add company mode support.
@@ -807,16 +826,31 @@ Fontify whole line for headings.
 
 ** Export
 
+Export source blocks to htlml.
+#+BEGIN_SRC emacs-lisp
+  (use-package htlmize)
+#+END_SRC
+
 Add bootstrap styled export.
 
 #+BEGIN_SRC emacs-lisp
   (use-package ox-twbs)
 #+END_SRC
 
-Using latexmk as the LaTeX exporter will automatically update the references.
+Using =latexmk= as the LaTeX exporter will automatically update the references.
 
-#+BEGIN_SRC
+#+BEGIN_SRC emacs-lisp
   (setq org-latex-pdf-process '("latexmk -lualatex -f %f"))
+#+END_SRC
+
+Use =reveal.js= for presentations.
+
+#+BEGIN_SRC emacs-lisp
+  (use-package org-re-reveal
+    :config
+    (setq org-re-reveal-root "https://www.jsdelivr.com/package/npm/reveal.js"))
+  (use-package org-re-reveal-ref)
+  (use-package oer-reveal)
 #+END_SRC
 
 ** Babel
@@ -831,8 +865,8 @@ org-mode.
      (latex . t)
      (C . t)
      (python . t)
+     (R . t)
      (jupyter . t)))
-  (org-babel-jupyter-override-src-block "python")
 #+END_SRC
 
 Syntax highlighting and tabbing in source blocks.
@@ -886,18 +920,17 @@ Custom org-latex-class for my research notes.
 #+BEGIN_SRC emacs-lisp
   (add-to-list 'org-latex-classes
                '("notes"
-                 "\\documentclass{article}
+                 "\\documentclass{scrartcl}
      \\usepackage{mathtools}
-     \\usepackage{physics}
-     \\usepackage{fontspec}
      \\usepackage{unicode-math}
-     \\usepackage[style=phys, hyperref=true, backref=true, backend=biber]{biblatex}
-     \\usepackage[colorlinks=true, citecolor=red, breaklinks]{hyperref}
-     [NO-DEFAULT-PACKAGES]
+     \\usepackage{fontenc}
+     \\usepackage{hyperref}
      [PACKAGES]
-                  \\setmainfont{Libertinus Serif}
-                  \\setmathfont{Libertinus Math}
-                  \\setsansfont{Libertinus Sans}"
+     [NO-DEFAULT-PACKAGES]
+     [EXTRA]
+               \\setmainfont{Libertinus Serif}
+               \\setmathfont{Libertinus Math}
+               \\setsansfont{Libertinus Sans}"
                   ("\\section{%s}" . "\\section*{%s}")
                   ("\\subsection{%s}" . "\\subsection*{%s}")
                   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
@@ -1094,4 +1127,12 @@ Extend the =pcomplete= framework for =eshell= with completion from =fish=.
   (use-package esh-autosuggest
     :hook
     (eshell-mode . esh-autosuggest-mode))
+#+END_SRC
+
+** Emms
+
+Emacs is also a multimedia system!
+
+#+BEGIN_SRC emacs-lisp
+  (use-package emms)
 #+END_SRC

@@ -1,0 +1,6 @@
+[submodule "polybar/.config/polybar/nmcli-rofi"]
+	path = polybar/.config/polybar/nmcli-rofi
+	url = https://github.com/sinetoami/nmcli-rofi.git
+[submodule "polybar/.config/polybar/rofi-wifi-menu"]
+	path = polybar/.config/polybar/rofi-wifi-menu
+	url = https://github.com/zbaylin/rofi-wifi-menu.git
