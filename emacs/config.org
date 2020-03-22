@@ -263,8 +263,8 @@ Suggest next keys to me based on currently entered key combination.
 #+BEGIN_SRC emacs-lisp
   (use-package which-key
     :diminish which-key-mode
-    :config
-    (add-hook 'after-init-hook 'which-key-mode))
+    :hook
+    (after-init . which-key-mode))
 #+END_SRC
 
 ** Better undo
@@ -448,8 +448,8 @@ which is similar. Should I bind that to =C-c p s g=?
 
 #+BEGIN_SRC emacs-lisp
   (use-package counsel-projectile
-    :config
-    (add-hook 'after-init-hook 'counsel-projectile-mode))
+    :hook
+    (after-init . counsel-projectile-mode))
 #+END_SRC
 
 ** Fuzzy search
@@ -521,7 +521,7 @@ function, and also add a custom checker for proselint.
 #+BEGIN_SRC emacs-lisp
   (use-package flycheck
     :config
-    (add-hook 'after-init-hook 'global-flycheck-mode)
+    (add-hook 'after-init-hook #'global-flycheck-mode)
     (add-to-list 'flycheck-checkers 'proselint)
     (setq-default flycheck-highlighting-mode 'lines)
     ;; Define fringe indicator / warning levels
@@ -581,19 +581,13 @@ this to work.
 
 ** Autocomplete
 
-Company mode provides good autocomplete options. Perhaps I should add
-company-quickhelp for documentation
-(https://github.com/expez/company-quickhelp)?
-
-It would also be good to improve integration with yasnippet as I don't feel I'm
-making the best use there.
+Company provides good autocomplete options.
 
 #+BEGIN_SRC emacs-lisp
   (use-package company
     :diminish
     :config
-    (setq company-tooltip-align-annotations t)
-    (setq company-idle-delay t)
+    (setq company-show-numbers t)
     :hook
     (after-init . global-company-mode))
 #+END_SRC
@@ -640,44 +634,33 @@ Markdown support isn't built into Emacs, add it with =markdown-mode=.
     :init (setq markdown-command "multimarkdown"))
 #+END_SRC
 
-** LSP
-
-Emacs client for language server protocol (LSP). =lsp-ui= provides flycheck
-integration, =dap-mode= provides debugger support.
+** Universtal Ctags
 
 #+BEGIN_SRC emacs-lisp
-  (use-package lsp-mode
-    :hook
-    (prog-mode . lsp)
-    :commands lsp
+  (use-package counsel-etags
+    :bind (("C-]" . counsel-etags-find-tag-at-point))
     :init
-    (setq lsp-enable-snippet t)
-    (setq lsp-enable-file-watchers t)
-    (setq lsp-auto-configure t)
-    (setq lsp-prefer-flymake nil))
-
-  (use-package lsp-ui
-    :commands lsp-ui
-    :init
-    (setq lsp-ui-sideline-show-symbol t)
-    (setq lsp-ui-sideline-show-hover t)
-    (setq lsp-ui-sideline-enable nil)
-    (setq lsp-ui-peek-enable t))
-
-  (use-package company-lsp :commands company-lsp)
-
-  (use-package lsp-treemacs
-    :after (lsp-mode treemacs)
-    :commands lsp-treemacs-errors-list)
-
-  (use-package dap-mode
-    :after lsp-mode
+    (add-hook 'prog-mode-hook
+      (lambda ()
+        (add-hook 'after-save-hook
+                  'counsel-etags-virtual-update-tags 'append 'local)))
     :config
-    (dap-mode t)
-    (dap-ui-mode t))
+      (setq counsel-etags-update-interval 60)
+      (push "build" counsel-etags-ignore-directories))
 #+END_SRC
 
 ** Python
+
+#+BEGIN_SRC emacs-lisp
+  (use-package anaconda-mode
+    :hook
+    (python-mode . anaconda-mode)
+    (python-mode . anaconda-eldoc-mode))
+
+  (use-package company-anaconda
+    :config
+    (add-to-list 'company-backends 'company-anaconda))
+#+END_SRC
 
 Control =conda= environments from Emacs.
 #+BEGIN_SRC emacs-lisp
@@ -691,10 +674,13 @@ Control =conda= environments from Emacs.
     (setq conda-env-home-directory (expand-file-name "~/miniconda3")))
 #+END_SRC
 
-Integrating =jupyter= into =org-mode=.
+Integrating =jupyter= into =org-mode=. It needs the path to the =jupyter=
+executable before =org-babel= is loaded.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package jupyter)
+  (add-to-list 'exec-path "~/miniconda3/envs/quant/bin/")
+  (use-package jupyter
+    :after (conda))
 #+END_SRC
 
 Running =jupyter= notebook directly from emacs.
@@ -721,22 +707,7 @@ Emacs Speaks Statistics for R.
   (use-package ess-smart-underscore)
 #+END_SRC
 
-** C/C++
-
-C/C++ server for =lsp-mode=. Need to install =ccls= on the system first.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package ccls
-    :after projectile
-    :custom
-    (ccls-args nil)
-    (ccls-executable (executable-find "ccls"))
-    (projectile-project-root-files-top-down-recurring
-     (append '("compile_commands.json" ".ccls")
-             projectile-project-root-files-top-down-recurring))
-    :config
-    (push ".ccls-cache" projectile-globally-ignored-directories))
-#+END_SRC
+** Dumb Jump
 
 #+BEGIN_SRC emacs-lisp
   (use-package dumb-jump
@@ -747,7 +718,8 @@ C/C++ server for =lsp-mode=. Need to install =ccls= on the system first.
 
 ** LaTeX
 
-AUCTeX is probably the best TeX editing system.
+AUCTeX is probably the best TeX editing system. CDLatTeX helps to speed up
+environment insertion, including AMS environments that naive AUCTeX does not.
 
 #+BEGIN_SRC emacs-lisp
   (use-package tex
@@ -780,6 +752,10 @@ AUCTeX is probably the best TeX editing system.
   (use-package auctex-latexmk
     :hook
     (LaTeX-mode . auctex-latexmk-setup))
+
+  (use-package cdlatex
+    :hook
+    (LaTeX-mode . turn-on-cdlatex))
 #+END_SRC
 
 Add company mode support.
@@ -843,6 +819,13 @@ Using =latexmk= as the LaTeX exporter will automatically update the references.
   (setq org-latex-pdf-process '("latexmk -lualatex -f %f"))
 #+END_SRC
 
+Use =lstlisting= for source environments.
+
+#+BEGIN_SRC emacs-lisp
+  (setq org-latex-listings t)
+  (add-to-list 'org-latex-packages-alist '("" "listingsutf8"))
+#+END_SRC
+
 Use =reveal.js= for presentations.
 
 #+BEGIN_SRC emacs-lisp
@@ -853,7 +836,8 @@ Use =reveal.js= for presentations.
   (use-package oer-reveal)
 #+END_SRC
 
-** Babel
+**
+Babel
 
 Org-babel can be used for literate programming, executing source code within
 org-mode.
@@ -864,8 +848,8 @@ org-mode.
    '((shell . t)
      (latex . t)
      (C . t)
-     (python . t)
      (R . t)
+     (python . t)
      (jupyter . t)))
 #+END_SRC
 
@@ -882,35 +866,13 @@ Custom source blocks
   (add-to-list 'org-structure-template-alist
                '("E" "#+BEGIN_SRC emacs-lisp \n  ?\n#+END_SRC"))
   (add-to-list 'org-structure-template-alist
-               '("jp" "#+BEGIN_SRC jupyter-python :session py :results output \n?\n#+END_SRC"))
+               '("jp" "#+BEGIN_SRC jupyter-python \n  ?\n#+END_SRC"))
 #+END_SRC
 
-** RefTeX
-
-Use RefTeX for reference management; =org-ref= does this job excellently,
-however it pulls in helm dependencies which I do not want. This [[https://bastibe.de/2014-09-23-org-cite.html][workaround]] by
-bastibe works pretty well for me.
+** CDLaTeX
 
 #+BEGIN_SRC emacs-lisp
-  (org-add-link-type "cite"
-       (defun follow-cite (name)
-         "Open bibliography and jump to appropriate entry.
-          The document must contain \addbibresource{filename} somewhere
-          for this to work"
-         (find-file-other-window
-          (save-excursion
-            (beginning-of-buffer)
-            (save-match-data
-              (re-search-forward "\\\\addbibresource{\\([^}]+\\)}")
-              (concat (match-string 1) ".bib"))))
-         (beginning-of-buffer)
-         (search-forward name))
-       (defun export-cite (path desc format)
-         "Export [[autocite:cohen93]] as \autocite{cohen93} in LaTeX."
-         (if (eq format 'latex)
-             (if (or (not desc) (equal 0 (search "autocite:" desc)))
-                 (format "\\autocite{%s}" path)
-               (format "\\autocite[%s]{%s}" desc path)))))
+  (add-hook 'org-mode-hook 'turn-on-org-cdlatex)
 #+END_SRC
 
 ** Org LaTeX class
@@ -918,24 +880,72 @@ bastibe works pretty well for me.
 Custom org-latex-class for my research notes.
 
 #+BEGIN_SRC emacs-lisp
+  (setq org-latex-classes
+        '(("article"
+           "
+  \\PassOptionsToPackage{svgnames}{xcolor}
+  \\documentclass[11pt]{article}
+  \\usepackage{fontspec}
+  \\usepackage{enumitem}
+  \\setlist[description]{style=unboxed,font=\\sffamily\\bfseries}
+  \\usepackage{listings}
+  \\lstset{frame=single,
+           aboveskip=1em,
+           framesep=.5em,
+           framerule=0pt,
+           backgroundcolor=\\color{GhostWhite},
+           breaklines=true,
+           postbreak=\\mbox{\\textcolor{Red}{$↪$}\\enspace},
+           keepspaces=true,
+           columns=fullflexible}
+  \\usepackage{xcolor}
+  \\newcommand\\basicdefault[1]{\\scriptsize\\color{Black}\\ttfamily#1}
+  \\lstset{basicstyle=\\basicdefault{\\spaceskip1em}}
+  [DEFAULT-PACKAGES]
+  \\hypersetup{linkcolor=Blue,urlcolor=DarkBlue,
+    citecolor=DarkRed,colorlinks=true}
+  \\AtBeginDocument{\\renewcommand{\\UrlFont}{\\ttfamily}}
+  [PACKAGES]
+  [EXTRA]"
+           ("\\section{%s}" . "\\section*{%s}")
+           ("\\subsection{%s}" . "\\subsection*{%s}")
+           ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+           ("\\paragraph{%s}" . "\\paragraph*{%s}")
+           ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
+
+          ("report" "\\documentclass[11pt]{report}"
+           ("\\part{%s}" . "\\part*{%s}")
+           ("\\chapter{%s}" . "\\chapter*{%s}")
+           ("\\section{%s}" . "\\section*{%s}")
+           ("\\subsection{%s}" . "\\subsection*{%s}")
+           ("\\subsubsection{%s}" . "\\subsubsection*{%s}"))
+
+          ("book" "\\documentclass[11pt]{book}"
+           ("\\part{%s}" . "\\part*{%s}")
+           ("\\chapter{%s}" . "\\chapter*{%s}")
+           ("\\section{%s}" . "\\section*{%s}")
+           ("\\subsection{%s}" . "\\subsection*{%s}")
+           ("\\subsubsection{%s}" . "\\subsubsection*{%s}"))))
+
+
   (add-to-list 'org-latex-classes
                '("notes"
                  "\\documentclass{scrartcl}
-     \\usepackage{mathtools}
-     \\usepackage{unicode-math}
-     \\usepackage{fontenc}
-     \\usepackage{hyperref}
-     [PACKAGES]
-     [NO-DEFAULT-PACKAGES]
-     [EXTRA]
-               \\setmainfont{Libertinus Serif}
-               \\setmathfont{Libertinus Math}
-               \\setsansfont{Libertinus Sans}"
-                  ("\\section{%s}" . "\\section*{%s}")
-                  ("\\subsection{%s}" . "\\subsection*{%s}")
-                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-                  ("\\paragraph{%s}" . "\\paragraph*{%s}")
-                  ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
+       \\usepackage{mathtools}
+       \\usepackage{unicode-math}
+       \\usepackage{fontenc}
+       \\usepackage{hyperref}
+       [PACKAGES]
+       [NO-DEFAULT-PACKAGES]
+       [EXTRA]
+                 \\setmainfont{Libertinus Serif}
+                 \\setmathfont{Libertinus Math}
+                 \\setsansfont{Libertinus Sans}"
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                 ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
 #+END_SRC
 
 * Extras
@@ -1100,15 +1110,12 @@ Tree navigation.
     :after treemacs magit)
 #+END_SRC
 
-** Visual fill column
+** Fill column indicator
 
 #+BEGIN_SRC emacs-lisp
-  (use-package visual-fill-column
+  (use-package fill-column-indicator
     :config
-    (setq visual-fill-column-width 80)
-    :hook
-    (prog-mode . turn-on-visual-line-mode)
-    (text-mode . turn-on-visual-line-mode))
+    (fci-mode 1))
 #+END_SRC
 
 ** Eshell autosuggest
