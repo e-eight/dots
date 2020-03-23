@@ -3,4 +3,4 @@
 	url = https://github.com/sinetoami/nmcli-rofi.git
 [submodule "polybar/.config/polybar/rofi-wifi-menu"]
 	path = polybar/.config/polybar/rofi-wifi-menu
-	url = https://github.com/zbaylin/rofi-wifi-menu.git
+	url = git@github.com:e-eight/rofi-wifi-menu.git
