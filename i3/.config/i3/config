@@ -181,7 +181,7 @@ gaps inner 10
 smart_gaps on
 
 # Prepare background
-exec_always feh --bg-fill $HOME/Pictures/CMYK_1.png
+exec_always feh --bg-fill $HOME/.config/i3/bg.png
 
 # Start compton daemon
 exec_always --no-startup-id compton -b
