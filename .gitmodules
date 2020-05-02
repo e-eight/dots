@@ -4,3 +4,6 @@
 [submodule "polybar/.config/polybar/rofi-wifi-menu"]
 	path = polybar/.config/polybar/rofi-wifi-menu
 	url = git@github.com:e-eight/rofi-wifi-menu.git
+[submodule "emacs/lisp/emacs-org-dnd"]
+	path = emacs/lisp/emacs-org-dnd
+	url = https://github.com/xeals/emacs-org-dnd.git

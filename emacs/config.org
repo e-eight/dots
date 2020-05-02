@@ -1,67 +1,26 @@
 #+TITLE: Emacs Config
 #+AUTHOR: soham
-#+TOC: true
-#+DATE: 2019-01-04
+#+OPTIONS: toc:t date:t
 
-This is my emacs configuration. At present it is essentially a fork of
-[[https://github.com/jamiecollinson/dotfiles/blob/master/config.org/][Jamie Collision's]] emacs configuration, with a few minor changes.
+This is my Emacs configuration. Based on [[https://github.com/jamiecollinson/dotfiles/blob/master/config.org/][Jamie Collision's]] and [[https:github.com/DiegoVicen/my-emacs/blob/master/README.org][Diego Vicente's]]
+configurations, with some additions from [[https:pragamaticemacs.com][Pragmatic Emacs]].
 
-* Setup
+* Basic Setup
 ** Configure package sources
 
-Add repositories from which we'll load packages.
+Add repositories from which Emacs will load packages. At present I am using the
+MELPA repository exclusively. MELPA Stable might be a better choice for
+stability (duh!), but it does not have all the packages that I use.
 
 #+BEGIN_SRC emacs-lisp
+(when (>= emacs-major-version 24)
   (require 'package)
-  (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
-  (setq package-enable-at-startup nil)
+  (add-to-list
+   'package-archives
+   '("melpa" . "https://melpa.org/packages/") t))
 #+END_SRC
 
-** Bootstrap use-package
-
-Install =use-package=, if it is not already installed.
-
-#+BEGIN_SRC emacs-lisp
-  (package-initialize)
-  (unless (package-installed-p 'use-package)
-    (package-refresh-contents)
-    (package-install 'use-package))
-#+END_SRC
-
-By default all packages should be installed from package manager as that's the
-usual path. This is equivalent to setting =:ensure t= on each call to
-=use-package=. To disable set =:ensure nil= (this is done automatically for any
-packages using =:load-path= so shouldn't generally be needed).
-
-#+BEGIN_SRC emacs-lisp
-  (setq use-package-always-ensure t)
-#+END_SRC
-
-=auto-package-update= for automatic updates (duh!)
-
-#+BEGIN_SRC emacs-lisp
-  (use-package auto-package-update
-    :config
-    (setq auto-package-update-delete-old-versions t)
-    (setq auto-package-update-hide-results t)
-    (setq auto-package-update-prompt-before-update t)
-    (auto-package-update-maybe))
-#+END_SRC
-
-** Benchmark startup
-
-=benchmark-init= records startup time by package so we can debug. It only
-records things after it's initialised, so put as early in config as possible.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package benchmark-init
-    :config
-    ;; To disable collection of benchmark data after init is done.
-    (add-hook 'after-init-hook 'benchmark-init/deactivate))
-
-  (add-hook 'after-init-hook
-            (lambda () (message "loaded in %s" (emacs-init-time))))
-#+END_SRC
+*** TODO Check if MELPA Stable has all the required packages.
 
 ** Increase garbage collector threshold
 
@@ -69,141 +28,500 @@ The default garbage collection threshold is 800kB, increasing this to 10MB for
 startup increases speed (from 11.0s -> 9.7s when I tested).
 
 #+BEGIN_SRC emacs-lisp
-  (setq gc-cons-threshold 10000000)
+(setq gc-cons-threshold 10000000)
 
-  ;; Restore after startup
-  (add-hook 'after-init-hook
-            (lambda ()
-              (setq gc-cons-threshold 1000000)
-              (message "gc-cons-threshold restored to %S"
-                       gc-cons-threshold)))
+;; Restore after startup
+(add-hook 'after-init-hook
+          (lambda ()
+            (setq gc-cons-threshold 1000000)
+            (message "gc-cons-threshold restored to %S"
+                     gc-cons-threshold)))
 #+END_SRC
 
-** Make it easy to edit this file
+** Configuration directory
+
+Directory for all my configurations.
 
 #+BEGIN_SRC emacs-lisp
-  (defun find-config ()
-    "Edit config.org"
-    (interactive)
-    (find-file "~/dots/emacs/config.org"))
+(setq configuration-dir "~/dots/emacs/")
+#+END_SRC
 
-  (global-set-key (kbd "C-c I") 'find-config)
+** Edit and reload config
+
+These are keybindings to easily edit and reload this configuration file.
+
+#+BEGIN_SRC emacs-lisp
+(defun reload-emacs-configuration()
+  "Reload the configuration"
+  (interactive)
+  (load "~/.emacs"))
+
+(defun open-emacs-configuration ()
+  "Open the configuration.org file in buffer"
+  (interactive)
+  (find-file (concat configuration-dir "config.org")))
+
+(global-set-key (kbd "C-c c r") 'reload-emacs-configuration)
+(global-set-key (kbd "C-c c o") 'open-emacs-configuration)
+#+END_SRC
+
+** Backups folder
+
+I absolutely hate the =filename#= spamming that Emacs does. At the same time I
+love that I can have a backup in case I accidentally powered off my computer
+without saving the files I was working on. This setup centralises the backup
+files created by Emacs.
+
+#+BEGIN_SRC emacs-lisp
+(setq backup-directory-alist '(("." . "~/.emacs.d/backup"))
+      backup-by-copying t    ; Don't delink hardlinks
+      version-control t      ; Use version numbers on backups
+      delete-old-versions t  ; Automatically delete excess backups
+      kept-new-versions 20   ; how many of the newest versions to keep
+      kept-old-versions 5    ; and how many of the old
+      )
 #+END_SRC
 
 ** Set custom settings to load in own file
 
-This stops emacs adding customised settings to =init.el=. I try to avoid using
+This stops Emacs adding customised settings to =init.el=. I try to avoid using
 customize anyway, preferring programmatic control of variables. Creating it as a
 temporary file effectively disables it (i.e. any changes are session local).
 
 #+BEGIN_SRC emacs-lisp
-  (setq custom-file (make-temp-file "emacs-custom"))
+(setq custom-file (make-temp-file "emacs-custom"))
 #+END_SRC
 
 ** Add custom packages to load path
 
 By default Emacs only includes files directly under =user-emacs-directory=
 (usually =~/.emacs.d/=), so we need to add any folders containing custom
-packages.
-
-I put my scripts under =~/dotfiles/lisp/= and symlink it with =ln -s
-~/dotfiles/lisp ~/.emacs.d/lisp=.
+packages. I put my scripts under =lisp= directory in my configuration directory
+and symlink with =stow=.
 
 #+BEGIN_SRC emacs-lisp
-  (add-to-list 'load-path "~/.emacs.d/lisp/")
+(add-to-list 'load-path (concat configuration-dir "lisp"))
 #+END_SRC
 
-* Preferences
+** Shorter yes or no prompts
 
-Don't display the help screen on startup.
+Single key strokes are probably better than triple key strokes.
 
 #+BEGIN_SRC emacs-lisp
-  (setq inhibit-startup-screen t)
+(fset 'yes-or-no-p 'y-or-n-p)
 #+END_SRC
 
-I prefer long lines to be broken.
+** Disable default startup screen
+
+I have no particular use for the default startup screen. I prefer the dashboard
+used by Spacemacs / Doom Emacs, which we will come to later. For now let us
+disable the startup-screen. While we are at it also start the =scratch= buffer
+in =org-mode= and disable the default =scratch= buffer message.
 
 #+BEGIN_SRC emacs-lisp
-  (setq-default fill-column 80)
-  (setq-default word-wrap t)
-  (auto-fill-mode 1)
+(setq inhibit-startup-screen t
+      initial-scratch-message ""
+      initial-major-mode 'org-mode)
 #+END_SRC
 
-Let's turn off unwanted window decoration.
+** Disable the bell
+
+The bell is a absolute no-no.
 
 #+BEGIN_SRC emacs-lisp
-  (tool-bar-mode -1)
-  (scroll-bar-mode -1)
-  (menu-bar-mode -1)
+(setq ring-bell-function 'ignore)
 #+END_SRC
 
-I don't want the error bell.
+** Emacs abbreviations
+
+I have not used Emacs abbreviations much, but seems like they can be
+useful, probably when I am typing my thesis. Just in case let us fix some
+choices for the abbreviations.
 
 #+BEGIN_SRC emacs-lisp
-  (setq ring-bell-function 'ignore)
+(setq save-abbrevs 'silent
+      abbrev-file-name "~/.emacs.d/abbrev_defs")
 #+END_SRC
 
-Make the =yes or no= prompts shorter.
+** Tabs vs Spaces
+
+Going to go with spaces on this one. I will also fix the indentation offest and
+tab width, setting both to 2.
 
 #+BEGIN_SRC emacs-lisp
-  (defalias 'yes-or-no-p 'y-or-n-p)
+(setq-default indent-tabs-mode nil)
+
+(setq tab-width 2)
+(defvaralias 'c-basic-offset 'tab-width)
 #+END_SRC
 
-A common frustration with new Emacs users is the =filename#= files created. This
-centralises the backup files created as you edit.
+** Fix scroll
+
+Smoother scroll whether I am using the keyboard or the mouse (sometimes the
+mouse can be useful).
 
 #+BEGIN_SRC emacs-lisp
-  (setq backup-directory-alist '(("." . "~/.emacs.d/backup"))
-    backup-by-copying t    ; Don't delink hardlinks
-    version-control t      ; Use version numbers on backups
-    delete-old-versions t  ; Automatically delete excess backups
-    kept-new-versions 20   ; how many of the newest versions to keep
-    kept-old-versions 5    ; and how many of the old
-    )
+(setq scroll-step            1
+      scroll-conservatively  10000
+      mouse-wheel-scroll-amount '(1 ((shift) . 1))
+      mouse-wheel-progressive-speed nil
+      mouse-wheel-follow-mouse 't)
 #+END_SRC
 
-I usually don't want tabs, if I do I can set this buffer-local to =t=. If I just
-want one tab then use =C-q= (=quoted-insert=) to insert as a literal.
+** Bootstrap use-package
+
+I am using =use-package= to install all the other Emacs packages that I
+use. There are quite a few excellent Emacs package managers on the market. But
+this is the one I am used to, and I would rather just install the packages and
+get to work that figure out how to use a different package manager. This
+installs =use-package=, if it is not already installed.
 
 #+BEGIN_SRC emacs-lisp
-  (setq-default indent-tabs-mode nil)
+(package-initialize)
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
 #+END_SRC
 
-I want to =ansi-term= to prompt =fish= instead of bash/zsh.
+By default all packages should be installed from package manager as that's the
+usual path. This is equivalent to setting =:ensure t= on each call to
+=use-package=. To disable we just have to set =:ensure nil= (this is done
+automatically for any packages using =:load-path= so shouldn't generally be
+needed).
 
 #+BEGIN_SRC emacs-lisp
-  (setq explicit-shell-file-name "/usr/bin/fish")
+(setq use-package-always-ensure t)
 #+END_SRC
 
-I want dired to sort in the reverse chronological order by default, and also to
-group directories first ([[https://oremacs.com/2015/01/13/dired-options/][details]]).
+** Automatic package updates
+
+No one wants to check for package updates manually, unless they are concerned
+about breakages. I am not for the most part, so I will use =auto-package-update=.
 
 #+BEGIN_SRC emacs-lisp
-  (setq dired-listing-switches "-lathG --group-directories-first")
+(use-package auto-package-update
+  :config
+  (setq auto-package-update-delete-old-versions t)
+  (setq auto-package-update-hide-results t)
+  (setq auto-package-update-prompt-before-update t)
+  (auto-package-update-maybe))
 #+END_SRC
 
-I want the =delete-selection-mode= to be active by default.
+** Benchmark startup
+
+I want to check how much time Emacs takes to startup, so that I can optimize it
+if required. There's a nifty package called =benchmark-init= that records
+startup time by package. It only records things after it is initialised, so it
+needs to be put as early in config as possible.
 
 #+BEGIN_SRC emacs-lisp
-  (delete-selection-mode 1)
+(use-package benchmark-init
+  :hook
+  ;; To disable collection of benchmark data after init is done.
+  (after-init . benchmark-init/deactivate)
+  (after-init . (lambda () (message "loaded in %s" (emacs-init-time)))))
 #+END_SRC
 
-* Interface
-** Basics
+** Real auto-save feature
 
-=crux= has useful functions extracted from Emacs Prelude. Set =C-a= to move to
-the first non-whitespace character on a line, and then to toggle between that
-and the beginning of the line.
+Pretty straightforward. Instead of creating an auxiliary file, just use the file
+itself. This may look like error-prone, but most of the times it is indeed just
+basically the same.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package crux
-    :bind (("C-a" . crux-move-beginning-of-line)))
+(use-package real-auto-save
+  :demand t
+  :config (setq real-auto-save-interval 10)
+  :hook (prog-mode . real-auto-save-mode))
 #+END_SRC
+
+** Environment management
+
+Since I usually use the Emacs GUI the =exec-path= variable is left empty at
+startup. We need to load the contents of =$PATH= to the =exec-path= variable and
+call it at start.
+
+#+BEGIN_SRC emacs-lisp
+(use-package exec-path-from-shell
+  :demand t
+  :config
+  (setq exec-path-from-shell-variables
+        '("PATH" "MANPATH" "DESKTOP_SESSION"))
+  (exec-path-from-shell-initialize))
+#+END_SRC
+
+** Insert new line without breaking
+
+Vim has this nifty shortcut =o=, which inserts a new line below the line in
+which the cursor is. I do not want to go full =evil=, but I do like this one
+feature of vim. To have the same behavior in Emacs, I found this custom
+function that I bound to C-o.
+
+#+BEGIN_SRC emacs-lisp
+(defun insert-new-line-below ()
+  "Add a new line below the current line"
+  (interactive)
+  (let ((oldpos (point)))
+    (end-of-line)
+    (newline-and-indent)))
+
+(global-set-key (kbd "C-o") 'insert-new-line-below)
+#+END_SRC
+
+** Move buffers around
+
+If we want to swap buffers location in frames, there’s no fast way to do it in
+Emacs by default. To do it, a good option that I found is to use buffer-move
+package, and use these key bindings.
+
+#+BEGIN_SRC emacs-lisp
+(use-package buffer-move
+  :bind (("C-c w <up>"    . buf-move-up)
+         ("C-c w <down>"  . buf-move-down)
+         ("C-c w <left>"  . buf-move-left)
+         ("C-c w <right>" . buf-move-right)))
+#+END_SRC
+
+** Redefining sentences
+
+For some reason Emacs assumes that we end sentences with a period and /two/
+whitespaces. I generally use a single whitespace after the period. To move in
+sentences we need to redefine sentence endings for Emacs.
+
+#+BEGIN_SRC emacs-lisp
+(setq-default sentence-end-double-space nil)
+#+END_SRC
+
+** Fill-column
+
+I prefer code and text to respect the 80 characters per line limit, even though
+sometimes, particularly with code, it is not possible at all.
+
+#+BEGIN_SRC emacs-lisp
+(setq-default fill-column 80)
+#+END_SRC
+
+** Auto-fill comments
+
+For our comments (only comments, not code) to be automatically filled in
+programming modes, we can use this function:
+
+#+BEGIN_SRC emacs-lisp
+(defun comment-auto-fill ()
+  (setq-local comment-auto-fill-only-comments t)
+  (auto-fill-mode 1))
+
+(add-hook 'prog-mode-hook 'comment-auto-fill)
+#+END_SRC
+
+** Delete selection
+
+Emacs by default does not follow the contemporary behavior of allowing
+highlighted text to be deleted. But that is whad I am more used to. So we will
+activate the =delete-selection-mode=.
+
+#+BEGIN_SRC emacs-lisp
+(delete-selection-mode 1)
+#+END_SRC
+
+** Scroll in the compilation buffer
+
+Automatically scroll the compilation buffer as the output is printed.
+
+#+BEGIN_SRC emacs-lisp
+(setq compilation-scroll-output t)
+#+END_SRC
+
+** Delete trailing whitespaces
 
 I *never* want whitespace at the end of lines. Remove it on save.
 
 #+BEGIN_SRC emacs-lisp
-  (add-hook 'before-save-hook 'delete-trailing-whitespace)
+(add-hook 'before-save-hook 'delete-trailing-whitespace)
+#+END_SRC
+
+** Highlight the current line.
+
+This highlights the line the cursor is on. Helps me to focus.
+
+#+BEGIN_SRC emacs-lisp
+(global-hl-line-mode 1)
+#+END_SRC
+
+** Diego Vincente's custom functions
+
+I am not quite proficient with elisp, but Diego Vincente has some nifty elisp
+fuctions on his configuration that I am going to steal verbatim.
+
+*** Clean the buffer
+This function cleans the buffer from trailing whitespaces, more than two
+consecutive new lines and tabs.
+
+#+BEGIN_SRC emacs-lisp
+(defun my-clean-buffer ()
+  "Cleans the buffer by re-indenting, removing tabs and trailing whitespace."
+  (interactive)
+  (delete-trailing-whitespace)
+  (save-excursion
+    (replace-regexp "^\n\\{3,\\}" "\n\n" nil (point-min) (point-max)))
+  (untabify (point-min) (point-max)))
+
+(global-set-key (kbd "C-c x") 'my-clean-buffer)
+#+END_SRC
+
+*** Move to indentation or beginning of the line
+
+By default, =C-a= moves the cursor to the beginning of the line. If there is
+indentation, usually you want to move to the beginning of the line after the
+indentation, which is indeed bound by default to =M-m=. However I would prefer
+=C-a= to do that; =beginning-of-line-dwim= takes you to the beginning of
+indentation, as M-m would do. If you are already there, it takes you to the
+absolute beginning of the line.
+
+#+BEGIN_SRC emacs-lisp
+(defun beginning-of-line-dwim ()
+  (interactive)
+  "Move to beginning of indentation, if there move to beginning of line."
+  (if (= (point) (progn (back-to-indentation) (point)))
+      (beginning-of-line)))
+
+(global-set-key (kbd "C-a") 'beginning-of-line-dwim)
+#+END_SRC
+
+*** Set the fringe as the background
+
+In the GUI mode, each Emacs window has narrow fringes on the left and right
+edges. This function allows to set the fringe color the same as the background,
+which makes it look flatter and more minimalist.
+
+#+BEGIN_SRC emacs-lisp
+(defun set-fringe-as-background ()
+  "Force the fringe to have the same color as the background"
+  (set-face-attribute 'fringe nil
+                      :foreground (face-foreground 'default)
+                      :background (face-background 'default)))
+#+END_SRC
+
+* Grahical Interface
+** Disable GUI defaults
+
+I prefer a minimalistic looks which means that the GUI defaults have to take the
+highway.
+
+#+BEGIN_SRC emacs-lisp
+(menu-bar-mode -1)
+(tool-bar-mode -1)
+(scroll-bar-mode -1)
+#+END_SRC
+
+** Fonts!!!
+
+Who does not like a good font? My choice is Adobe's Source Code Pro.
+
+#+BEGIN_SRC emacs-lisp
+(set-frame-font "Source Code Pro 12" nil t)
+#+END_SRC
+
+** Setting the theme
+
+=doom-themes= is an excellent collection of themes. I sometimes cycle through
+them, using =counsel-load-theme= to load the themes. For now I will set
+=doom-solarized-light= as the default theme.
+
+#+BEGIN_SRC emacs-lisp
+(use-package doom-themes
+  :config
+  (load-theme 'doom-solarized-light t))
+#+END_SRC
+
+** Icons!!!
+
+=all-the-icons= has all the icons! So let us use it.
+
+#+BEGIN_SRC emacs-lisp
+(use-package all-the-icons
+  :after font-lock+)
+#+END_SRC
+
+** Modeline
+
+I hardly use the mouse with Emacs, and I have disabled all default mouse
+features. But I am going to make an exception for the =moody= + =minions=
+alternative to the builtin modeline.
+
+#+BEGIN_SRC emacs-lisp
+(use-package minions
+  :config
+  (setq minions-mode-line-lighter "[+]")
+  (minions-mode))
+
+(use-package moody
+  :config
+  (moody-replace-mode-line-buffer-identification)
+  (moody-replace-vc-mode)
+  (setq-default x-underline-at-descent-line t
+                column-number-mode t))
+#+END_SRC
+
+* Packages \ Tools
+** Dash
+
+Modern list api for Emacs.
+
+#+BEGIN_SRC emacs-lisp
+(use-package dash)
+(use-package dash-functional)
+#+END_SRC
+** Dashboard
+
+This is the dashboard that is used in Spacemacs / Doom Emacs. I find it quite
+useful, though sometimes it does not update the recent files as early as I
+prefer.
+
+#+BEGIN_SRC emacs-lisp
+(use-package dashboard
+  :config
+  (dashboard-setup-startup-hook))
+#+END_SRC
+
+** Dired enhancements
+
+Emac's =dired= is probably the best file manager that I have used. A close
+second is =ranger=. Here are some packages that add some of the functionalities
+of =ranger= that I particularly like to =dired=.
+
+#+BEGIN_SRC emacs-lisp
+(use-package dired-ranger
+  :bind (:map dired-mode-map
+              ("W" . dired-ranger-copy)
+              ("X" . dired-ranger-move)
+              ("Y" . dired-ranger-paste)))
+(use-package dired-filter
+  :bind (:map dired-mode-map
+              ("F" . dired-filter-map)))
+(use-package dired-avfs)
+(use-package dired-rainbow)
+(use-package dired-collapse)
+(use-package dired-narrow
+  :bind (:map dired-mode-map
+              ("/" . dired-narrow)))
+(use-package dired-subtree
+  :bind (:map dired-mode-map
+              ("<tab>" . dired-subtree-toggle)
+              ("<backtab>" . dired-subtree-cycle)))
+#+END_SRC
+
+There is an =all-the-icons= package for =dired=. So let us add that too!
+
+#+BEGIN_SRC emacs-lisp
+(use-package all-the-icons-dired
+  :hook (dired-mode . all-the-icons-dired-mode))
+#+END_SRC
+
+Default switches for =dired=.
+
+#+BEGIN_SRC emacs-lisp
+(setq dired-listing-switches "-lath --group-directories-first")
 #+END_SRC
 
 ** Command completion
@@ -212,59 +530,68 @@ I *never* want whitespace at the end of lines. Remove it on save.
 to use it directly but =counsel= uses it to order suggestions.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package smex)
+(use-package smex)
 #+END_SRC
 
 =ivy= is a generic completion framework which uses the minibuffer. Turning on
-=ivy-mode= enables replacement of lots of built in =ido= functionality.
+=ivy-mode= enables replacement of lots of built in =ido=
+functionality. =ivy-rich= adds a friendlier interface to =ivy=.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package ivy
-      :diminish ivy-mode
-      :config
-      (ivy-mode t)
-      (setq ivy-display-style 'fancy))
+(use-package ivy
+  :diminish ivy-mode
+  :config
+  (ivy-mode t)
+  (setq ivy-display-style 'fancy))
+
+(use-package ivy-rich
+  :ensure t
+  :after ivy
+  :config
+  ;; Disable TRAMP buffers extended information to prevent slowdown
+  (setq ivy-rich-parse-remote-buffer nil)
+  (ivy-rich-mode 1))
 #+END_SRC
 
 By default =ivy= starts filters with =^=. I don't normally want that and can
 easily type it manually when I do.
 
 #+BEGIN_SRC emacs-lisp
-  (setq ivy-initial-inputs-alist nil)
+(setq ivy-initial-inputs-alist nil)
 #+END_SRC
 
 =counsel= is a collection of =ivy= enhanced versions of common Emacs commands. I
 haven't bound much as =ivy-mode= takes care of most things.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package counsel
-    :bind (("M-x" . counsel-M-x)))
+(use-package counsel
+  :bind (("M-x" . counsel-M-x)))
 #+END_SRC
 
 =swiper= is an =ivy= enhanced version of isearch.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package swiper)
-  (global-set-key (kbd "C-s") 'counsel-grep-or-swiper)
-  (global-set-key (kbd "M-s") 'isearch-forward)
-  (global-set-key (kbd "M-r") 'isearch-backward)
+(use-package swiper)
+(global-set-key (kbd "C-s") 'counsel-grep-or-swiper)
+(global-set-key (kbd "M-s") 'isearch-forward)
+(global-set-key (kbd "M-r") 'isearch-backward)
 #+END_SRC
 
 =hydra= presents menus for =ivy= commands.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package ivy-hydra)
+(use-package ivy-hydra)
 #+END_SRC
 
 ** Suggest next key
 
-Suggest next keys to me based on currently entered key combination.
+Suggest next keys based on currently entered key combination.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package which-key
-    :diminish which-key-mode
-    :hook
-    (after-init . which-key-mode))
+(use-package which-key
+  :diminish which-key-mode
+  :hook
+  (after-init . which-key-mode))
 #+END_SRC
 
 ** Better undo
@@ -272,11 +599,11 @@ Suggest next keys to me based on currently entered key combination.
 =undo-tree= visualises undo history as a tree for easy navigation.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package undo-tree
-    :defer 5
-    :diminish global-undo-tree-mode
-    :config
-    (global-undo-tree-mode 1))
+(use-package undo-tree
+  :defer 5
+  :diminish global-undo-tree-mode
+  :config
+  (global-undo-tree-mode 1))
 #+END_SRC
 
 ** Navigation
@@ -285,17 +612,17 @@ One of the most important features of an advanced editor is quick text
 navigation. =avy= lets us jump to any character or line quickly.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package avy)
+(use-package avy)
 #+END_SRC
 
 =ace-window= lets us navigate between windows in the same way as =avy=. Once
 activated it has useful sub-modes like =x= to switch into window deletion mode.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package ace-window
-     :config
-     (global-set-key (kbd "C-x o") 'ace-window)
-     (setq aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)))
+(use-package ace-window
+  :config
+  (global-set-key (kbd "C-x o") 'ace-window)
+  (setq aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)))
 #+END_SRC
 
 ** Easier selection
@@ -304,139 +631,60 @@ activated it has useful sub-modes like =x= to switch into window deletion mode.
 mode. Hard to describe but a killer feature.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package expand-region
-    :bind ("C-=" . er/expand-region))
+(use-package expand-region
+  :bind ("C-=" . er/expand-region))
 #+END_SRC
 
-* Appearance
+** Emoji support.
 
-Add a dashboard.
+This is useful when working with html.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package dashboard
-    :config
-    (dashboard-setup-startup-hook))
+(use-package emojify)
 #+END_SRC
 
-Use a (somewhat) muted theme.
+** Git
+
+Magit is an awesome interface to git. Summon it with `C-x g`.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package doom-themes
-    :config
-    (load-theme 'doom-peacock t))
-  (use-package all-the-icons)
+(use-package magit
+  :config (setq magit-branch-read-upstream-first 'fallback)
+  :bind ("C-x g" . magit-status))
 #+END_SRC
 
-Set a nice font.
+Display line changes in gutter based on git history. Enable it everywhere.
 
 #+BEGIN_SRC emacs-lisp
-  (set-frame-font "Source Code Pro 12" nil t)
+(use-package git-gutter
+  :config
+  (global-git-gutter-mode 't)
+  :diminish git-gutter-mode)
 #+END_SRC
 
-=moody= + =minions= as an attractive minimalist mode line replacement.
-=feebleline= is a great option too, but it has been a hit and miss for me.
+TimeMachine lets us step through the history of a file as recorded in git.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package minions
-    :config
-    (setq minions-mode-line-lighter "[+]")
-    (minions-mode 1))
-
-  (use-package moody
-    :config
-    (moody-replace-mode-line-buffer-identification)
-    (moody-replace-vc-mode)
-    (setq-default x-underline-at-descent-line t
-                  column-number-mode t))
-#+END_SRC
-
-Add emoji support. This is useful when working with html.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package emojify)
-#+END_SRC
-
-Sometimes it helps to focus on the thing currently under the cursor. This turns
-off syntax highlighting for everything but the current thing. It's useful
-sometimes but a bit buggy in certain modes. I wonder if I could improve the
-config / find a better alternative?
-
-#+BEGIN_SRC emacs-lisp
-  (use-package focus)
-#+END_SRC
-
-Highlight the current line.
-
-#+BEGIN_SRC emacs-lisp
-  (global-hl-line-mode 1)
-#+END_SRC
-
-* Coding
-** Programming specific interface improvements
-
-When programming I like my editor to try to help me with keeping parentheses
-balanced.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package smartparens
-    :diminish smartparens-mode
-    :hook
-    (prog-mode . smartparens-mode))
-#+END_SRC
-
-Highlight parens etc. for improved readability.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package rainbow-delimiters
-    :hook
-    (prog-mode . rainbow-delimiters-mode))
-#+END_SRC
-
-Highlight strings which represent colours. I only want this in programming
-modes, and I don't want colour names to be highlighted (=x-colors=).
-
-#+BEGIN_SRC emacs-lisp
-  (use-package rainbow-mode
-    :config
-    (setq rainbow-x-colors nil)
-    :hook
-    (prog-mode . rainbow-mode))
-#+END_SRC
-
-Keep things indented correctly for me.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package aggressive-indent)
-#+END_SRC
-
-Expand parentheses for me.
-
-#+BEGIN_SRC emacs-lisp
-  (add-hook 'prog-mode-hook 'electric-pair-mode)
-#+END_SRC
-
-Flyspell for comments and strings.
-
-#+BEGIN_SRC emacs-lisp
-  (add-hook 'prog-mode-hook 'flyspell-prog-mode)
+(use-package git-timemachine)
 #+END_SRC
 
 ** Project management
 
-Projectile handles folders which are in version control.
+Still not sure how to make best uses of =projectile=, but everyone and their cow
+praises =projectile=.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package projectile
-    :config
-    (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
-    (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
-    (projectile-mode 1))
+(use-package projectile
+  :config
+  (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
+  (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+  (projectile-mode 1))
 #+END_SRC
 
 Tell projectile to integrate with =ivy= for completion.
 
 #+BEGIN_SRC emacs-lisp
-  (setq projectile-completion-system 'ivy)
+(setq projectile-completion-system 'ivy)
 #+END_SRC
 
 Add some extra completion options via integration with =counsel=. In particular
@@ -447,28 +695,147 @@ There is no function for projectile-grep, but we could use =counsel-git-grep=
 which is similar. Should I bind that to =C-c p s g=?
 
 #+BEGIN_SRC emacs-lisp
-  (use-package counsel-projectile
-    :hook
-    (after-init . counsel-projectile-mode))
+(use-package counsel-projectile
+  :hook
+  (after-init . counsel-projectile-mode))
 #+END_SRC
 
-** Fuzzy search
+** Syntax and spelling
 
-=fzf= is a fuzzy file finder which is very quick.
+=Flycheck= is a general syntax highlighting framework which other packages hook
+into. It's an improvment on the builtin =flymake=. Setup is pretty simple - we
+just enable globally and turn on a custom eslint function, and also add a custom
+checker for proselint.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package fzf)
+(use-package flycheck
+  :config
+  (add-to-list 'flycheck-checkers 'proselint)
+  (setq-default flycheck-highlighting-mode 'lines)
+  ;; Define fringe indicator / warning levels
+  (define-fringe-bitmap 'flycheck-fringe-bitmap-ball
+    (vector #b00000000
+            #b00000000
+            #b00000000
+            #b00000000
+            #b00000000
+            #b00000000
+            #b00000000
+            #b00011100
+            #b00111110
+            #b00111110
+            #b00111110
+            #b00011100
+            #b00000000
+            #b00000000
+            #b00000000
+            #b00000000
+            #b00000000))
+  (flycheck-define-error-level 'error
+    :severity 2
+    :overlay-category 'flycheck-error-overlay
+    :fringe-bitmap 'flycheck-fringe-bitmap-ball
+    :fringe-face 'flycheck-fringe-error)
+  (flycheck-define-error-level 'warning
+    :severity 1
+    :overlay-category 'flycheck-warning-overlay
+    :fringe-bitmap 'flycheck-fringe-bitmap-ball
+    :fringe-face 'flycheck-fringe-warning)
+  (flycheck-define-error-level 'info
+    :severity 0
+    :overlay-category 'flycheck-info-overlay
+    :fringe-bitmap 'flycheck-fringe-bitmap-ball
+    :fringe-face 'flycheck-fringe-info)
+  :hook
+  (after-init . global-flycheck-mode))
 #+END_SRC
 
-** Environment management
-
-By default Emacs doesn't read from the same environment variables set in your
-terminal. This package fixes that.
+Proselint is a syntax checker for English language. This defines a custom
+checker which will run in texty modes. It is a python package that needs to be
+installed externally.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package exec-path-from-shell
-    :config
-    (exec-path-from-shell-initialize))
+(flycheck-define-checker proselint
+  "A linter for prose."
+  :command ("proselint" source-inplace)
+  :error-patterns
+  ((warning line-start (file-name) ":" line ":" column ": "
+            (id (one-or-more (not (any " "))))
+            (message (one-or-more not-newline)
+                     (zero-or-more "\n" (any " ") (one-or-more not-newline)))
+            line-end))
+  :modes (text-mode markdown-mode gfm-mode org-mode))
+#+END_SRC
+
+=Flyspell= is a builtin spelling checker. I prefer it to be activated for
+=text-mode= and for comments in =prog-mode=.
+
+#+BEGIN_SRC emacs-lisp
+(add-hook 'text-mode-hook 'flyspell-mode)
+(add-hook 'prog-mode-hook 'flyspell-prog-mode)
+#+END_SRC
+
+** Autocomplete
+
+=Company= is a pretty good autocompletion system.
+
+#+BEGIN_SRC emacs-lisp
+(use-package company
+  :diminish
+  :demand t
+  :config
+  (setq company-show-numbers t
+        company-tooltips-align-annotations t))
+#+END_SRC
+
+I don't want suggestions from open files / buffers to be automatically
+lowercased as these are often camelcase function names.
+
+#+BEGIN_SRC emacs-lisp
+(setq company-dabbrev-downcase nil)
+#+END_SRC
+
+** Parens and delimiters
+
+When programming I like my editor to try to help me with keeping parentheses
+balanced.
+
+#+BEGIN_SRC emacs-lisp
+(use-package smartparens
+  :diminish smartparens-mode
+  :hook
+  (prog-mode . smartparens-mode))
+#+END_SRC
+
+Highlight parens etc. for improved readability.
+
+#+BEGIN_SRC emacs-lisp
+(use-package rainbow-delimiters
+  :hook
+  (prog-mode . rainbow-delimiters-mode))
+#+END_SRC
+
+** Highlighted color strings
+
+I prefer strings which represent colours to be highlighted, and I only want this
+in programming modes, and I don't want colour names to be highlighted
+(=x-colors=).
+
+#+BEGIN_SRC emacs-lisp
+(use-package rainbow-mode
+  :config
+  (setq rainbow-x-colors nil)
+  :hook
+  (prog-mode . rainbow-mode))
+#+END_SRC
+
+** Indentations
+
+=agressive-indent-mode= is more reliable than =electric-indent-mode= at keeping
+my code always indented.
+
+#+BEGIN_SRC emacs-lisp
+(use-package aggressive-indent)
 #+END_SRC
 
 ** Jump to source
@@ -478,540 +845,77 @@ Individual language packages often support IDE features like jump to source, but
 effective even with dynamic libraries like JS and Python.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package dumb-jump
-    :diminish dumb-jump-mode
-    :bind (("C-M-g" . dumb-jump-go)
-           ("C-M-p" . dumb-jump-back)
-           ("C-M-q" . dumb-jump-quick-look)))
-#+END_SRC
-
-** Git
-
-Magit is an awesome interface to git. Summon it with `C-x g`.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package magit
-    :config (setq magit-branch-read-upstream-first 'fallback)
-    :bind ("C-x g" . magit-status))
-#+END_SRC
-
-Display line changes in gutter based on git history. Enable it everywhere.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package git-gutter
-    :config
-    (global-git-gutter-mode 't)
-    :diminish git-gutter-mode)
-#+END_SRC
-
-TimeMachine lets us step through the history of a file as recorded in git.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package git-timemachine)
-#+END_SRC
-
-** Syntax checking
-
-=Flycheck= is a general syntax highlighting framework which other packages hook
-into. It's an improvment on the built in =flymake=.
-
-Setup is pretty simple - we just enable globally and turn on a custom eslint
-function, and also add a custom checker for proselint.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package flycheck
-    :config
-    (add-hook 'after-init-hook #'global-flycheck-mode)
-    (add-to-list 'flycheck-checkers 'proselint)
-    (setq-default flycheck-highlighting-mode 'lines)
-    ;; Define fringe indicator / warning levels
-    (define-fringe-bitmap 'flycheck-fringe-bitmap-ball
-      (vector #b00000000
-              #b00000000
-              #b00000000
-              #b00000000
-              #b00000000
-              #b00000000
-              #b00000000
-              #b00011100
-              #b00111110
-              #b00111110
-              #b00111110
-              #b00011100
-              #b00000000
-              #b00000000
-              #b00000000
-              #b00000000
-              #b00000000))
-    (flycheck-define-error-level 'error
-      :severity 2
-      :overlay-category 'flycheck-error-overlay
-      :fringe-bitmap 'flycheck-fringe-bitmap-ball
-      :fringe-face 'flycheck-fringe-error)
-    (flycheck-define-error-level 'warning
-      :severity 1
-      :overlay-category 'flycheck-warning-overlay
-      :fringe-bitmap 'flycheck-fringe-bitmap-ball
-      :fringe-face 'flycheck-fringe-warning)
-    (flycheck-define-error-level 'info
-      :severity 0
-      :overlay-category 'flycheck-info-overlay
-      :fringe-bitmap 'flycheck-fringe-bitmap-ball
-      :fringe-face 'flycheck-fringe-info))
-    #+END_SRC
-
-Proselint is a syntax checker for English language. This defines a custom
-checker which will run in texty modes.
-
-Proselint is an external program, install it with =pip install proselint= for
-this to work.
-
-#+BEGIN_SRC emacs-lisp
-  (flycheck-define-checker proselint
-    "A linter for prose."
-    :command ("proselint" source-inplace)
-    :error-patterns
-    ((warning line-start (file-name) ":" line ":" column ": "
-              (id (one-or-more (not (any " "))))
-              (message (one-or-more not-newline)
-                       (zero-or-more "\n" (any " ") (one-or-more not-newline)))
-              line-end))
-    :modes (text-mode markdown-mode gfm-mode org-mode))
-#+END_SRC
-
-** Autocomplete
-
-Company provides good autocomplete options.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package company
-    :diminish
-    :config
-    (setq company-show-numbers t)
-    :hook
-    (after-init . global-company-mode))
-#+END_SRC
-
-I don't want suggestions from open files / buffers to be automatically
-lowercased as these are often camelcase function names.
-
-#+BEGIN_SRC emacs-lisp
-  (setq company-dabbrev-downcase nil)
+(use-package dumb-jump
+  :diminish dumb-jump-mode
+  :config
+  (setq dumb-jump-selector 'ivy
+        dumb-jump-aggressive nil)
+  :bind (("C-M-g" . dumb-jump-go)
+         ("C-M-p" . dumb-jump-back)
+         ("C-M-q" . dumb-jump-quick-look)))
 #+END_SRC
 
 ** Snippets
 
 Unlike autocomplete which suggests words / symbols, snippets are pre-prepared
-templates which you fill in.
-
-I'm using a community library
-(=[[https://github.com/AndreaCrotti/yasnippet-snippets]]=) with *lots* of ready made
-options, and have my own directory of custom snippets I've added. Not sure if I
-should unify these by forking =yasnippet-snippets=.
-
-Type the shortcut and press =TAB= to complete, or =M-/= to autosuggest a snippet.
+templates which you fill in. I'm using a community library =yasnippet-snippets=
+with *lots* of ready made options, and have my own directory of custom snippets
+I've added. Type the shortcut and press =TAB= to complete, or =M-/= to
+autosuggest a snippet.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package yasnippet
-      :diminish yas-minor-mode
-      :config
-      (add-to-list 'yas-snippet-dirs "~/.emacs.d/snippets")
-      (yas-global-mode)
-      (global-set-key (kbd "M-/") 'company-yasnippet))
-  (use-package yasnippet-snippets)
+(use-package yasnippet
+  :diminish yas-minor-mode
+  :config
+  (add-to-list 'yas-snippet-dirs (concat configuration-dir "snippets"))
+  (yas-global-mode)
+  (global-set-key (kbd "M-/") 'company-yasnippet))
+(use-package yasnippet-snippets)
 #+END_SRC
 
-** Markdown
+** Universal / Exuberant Ctags
 
-Markdown support isn't built into Emacs, add it with =markdown-mode=.
+Tags based completion for large projects. So far I have found this to be
+more reliable than =lsp-mode= and =eglot= for ide-like completion. [[https://github.com/universal-ctags/ctags][Universal
+Ctags]] or some other ctag implementation needs to be installed. Additionally =GNU
+Find= can also be used as a backend.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package markdown-mode
-    :commands (markdown-mode gfm-mode)
-    :mode (("README\\.md\\'" . gfm-mode)
-           ("\\.md\\'" . markdown-mode)
-           ("\\.markdown\\'" . markdown-mode))
-    :init (setq markdown-command "multimarkdown"))
+(use-package counsel-etags
+  :bind (("C-]" . counsel-etags-find-tag-at-point))
+  :init
+  (add-hook 'prog-mode-hook
+            (lambda ()
+              (add-hook 'after-save-hook
+                        'counsel-etags-virtual-update-tags 'append 'local)))
+  :config
+  (setq counsel-etags-update-interval 60)
+  (push "build" counsel-etags-ignore-directories))
 #+END_SRC
 
-** Universtal Ctags
+** Terminal
+
+=sane-term= restores some sanity to =ansi-term= to provide something close to a
+proper shell in Emacs.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package counsel-etags
-    :bind (("C-]" . counsel-etags-find-tag-at-point))
-    :init
-    (add-hook 'prog-mode-hook
+(use-package sane-term
+  :config
+  (defun set-up-sane-term ()
+    "Fix yanking and prepare for sane-term-mode."
+    (setq-local global-hl-line-mode nil)
+    (define-key
+      term-raw-map
+      (kbd "C-y")
       (lambda ()
-        (add-hook 'after-save-hook
-                  'counsel-etags-virtual-update-tags 'append 'local)))
-    :config
-      (setq counsel-etags-update-interval 60)
-      (push "build" counsel-etags-ignore-directories))
-#+END_SRC
-
-** Python
-
-#+BEGIN_SRC emacs-lisp
-  (use-package anaconda-mode
-    :hook
-    (python-mode . anaconda-mode)
-    (python-mode . anaconda-eldoc-mode))
-
-  (use-package company-anaconda
-    :config
-    (add-to-list 'company-backends 'company-anaconda))
-#+END_SRC
-
-Control =conda= environments from Emacs.
-#+BEGIN_SRC emacs-lisp
-  (use-package conda
-    :init
-    (conda-env-initialize-interactive-shells)
-    (conda-env-initialize-eshell)
-    :config
-    (conda-env-autoactivate-mode t)
-    (setq conda-anaconda-home (expand-file-name "~/miniconda3"))
-    (setq conda-env-home-directory (expand-file-name "~/miniconda3")))
-#+END_SRC
-
-Integrating =jupyter= into =org-mode=. It needs the path to the =jupyter=
-executable before =org-babel= is loaded.
-
-#+BEGIN_SRC emacs-lisp
-  (add-to-list 'exec-path "~/miniconda3/envs/quant/bin/")
-  (use-package jupyter
-    :after (conda))
-#+END_SRC
-
-Running =jupyter= notebook directly from emacs.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package ein)
-#+END_SRC
-
-=IPython= as python interpreter.
-
-#+BEGIN_SRC emacs-lisp
-  (when (executable-find "ipython")
-    (setq python-shell-interpreter "ipython"))
-#+END_SRC
-
-** R
-
-Emacs Speaks Statistics for R.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package ess)
-  (use-package ess-R-data-view)
-  (use-package ess-smart-equals)
-  (use-package ess-smart-underscore)
-#+END_SRC
-
-** Dumb Jump
-
-#+BEGIN_SRC emacs-lisp
-  (use-package dumb-jump
-    :config
-    (setq dumb-jump-selector 'ivy)
-    (setq dumb-jump-aggressive nil))
-#+END_SRC
-
-** LaTeX
-
-AUCTeX is probably the best TeX editing system. CDLatTeX helps to speed up
-environment insertion, including AMS environments that naive AUCTeX does not.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package tex
-    :demand t
-    :ensure auctex
-    :config
-    (setq-default TeX-engine 'luatex)
-    (setq-default TeX-PDF-mode t)
-    (setq-default TeX-master nil)
-    (setq TeX-parse-self t)
-    (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
-    (setq reftex-plug-into-AUCTeX t)
-    (setq reftex-bibliography-commands '("bibliography" "nobibliography" "addbibresource"))
-    (setq reftex-use-external-file-finders t)
-    (setq reftex-external-file-finders
-          '(("tex" . "kpsewhich -format=.tex %f")
-            ("bib" . "kpsewhich -format=.bib %f")))
-    (setq reftex-insert-label-flags '("s" "sft" "e"))
-    (setq TeX-electric-sub-and-superscrip t)
-    (setq TeX-electric-math (cons "\\(" "\\)"))
-    :hook
-    ((LaTeX-mode . visual-line-mode)
-     (LaTeX-mode . turn-on-auto-fill)
-     (LaTeX-mode . flyspell-mode)
-     (LaTeX-mode . LaTeX-math-mode)
-     (LaTeX-mode . turn-on-reftex)
-     (TeX-after-compilation-finished-functions
-      . TeX-revert-document-buffer)))
-
-  (use-package auctex-latexmk
-    :hook
-    (LaTeX-mode . auctex-latexmk-setup))
-
-  (use-package cdlatex
-    :hook
-    (LaTeX-mode . turn-on-cdlatex))
-#+END_SRC
-
-Add company mode support.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package company-math
-    :config
-    (add-to-list 'company-backends 'company-math-symbols-latex)
-    (add-to-list 'company-backends 'company-math-symbols-unicode))
-#+END_SRC
-
-* Org
-** General settings.
-
-I should comment on these more...
-
-#+BEGIN_SRC emacs-lisp
-  (setq org-startup-indented 'f)
-  (setq org-directory "~/org")
-  (setq org-special-ctrl-a/e 't)
-  (setq org-default-notes-file (concat org-directory "/notes.org"))
-  (setq org-agenda-files (list (concat org-directory "/todo.org")))
-  (global-set-key (kbd "\C-c a") 'org-agenda)
-  (define-key global-map "\C-c c" 'org-capture)
-  (setq org-src-window-setup 'current-window)
-#+END_SRC
-
-** Appearance
-
-Improve the display of bullet points.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package org-bullets
-    :config
-    (setq org-bullets-bullet-list '("∙"))
-    :hook
-    (org-bullets . org-mode))
-#+END_SRC
-
-Fontify whole line for headings.
-#+BEGIN_SRC emacs-lisp
-  (setq org-fontify-whole-heading-line t)
-#+END_SRC
-
-** Export
-
-Export source blocks to htlml.
-#+BEGIN_SRC emacs-lisp
-  (use-package htlmize)
-#+END_SRC
-
-Add bootstrap styled export.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package ox-twbs)
-#+END_SRC
-
-Using =latexmk= as the LaTeX exporter will automatically update the references.
-
-#+BEGIN_SRC emacs-lisp
-  (setq org-latex-pdf-process '("latexmk -lualatex -f %f"))
-#+END_SRC
-
-Use =lstlisting= for source environments.
-
-#+BEGIN_SRC emacs-lisp
-  (setq org-latex-listings t)
-  (add-to-list 'org-latex-packages-alist '("" "listingsutf8"))
-#+END_SRC
-
-Use =reveal.js= for presentations.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package org-re-reveal
-    :config
-    (setq org-re-reveal-root "https://www.jsdelivr.com/package/npm/reveal.js"))
-  (use-package org-re-reveal-ref)
-  (use-package oer-reveal)
-#+END_SRC
-
-**
-Babel
-
-Org-babel can be used for literate programming, executing source code within
-org-mode.
-
-#+BEGIN_SRC emacs-lisp
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((shell . t)
-     (latex . t)
-     (C . t)
-     (R . t)
-     (python . t)
-     (jupyter . t)))
-#+END_SRC
-
-Syntax highlighting and tabbing in source blocks.
-
-#+BEGIN_SRC emacs-lisp
-  (setq org-src-fontify-natively 't)
-  (setq org-src-tab-acts-natively t)
-#+END_SRC
-
-Custom source blocks
-
-#+BEGIN_SRC emacs-lisp
-  (add-to-list 'org-structure-template-alist
-               '("E" "#+BEGIN_SRC emacs-lisp \n  ?\n#+END_SRC"))
-  (add-to-list 'org-structure-template-alist
-               '("jp" "#+BEGIN_SRC jupyter-python \n  ?\n#+END_SRC"))
-#+END_SRC
-
-** CDLaTeX
-
-#+BEGIN_SRC emacs-lisp
-  (add-hook 'org-mode-hook 'turn-on-org-cdlatex)
-#+END_SRC
-
-** Org LaTeX class
-
-Custom org-latex-class for my research notes.
-
-#+BEGIN_SRC emacs-lisp
-  (setq org-latex-classes
-        '(("article"
-           "
-  \\PassOptionsToPackage{svgnames}{xcolor}
-  \\documentclass[11pt]{article}
-  \\usepackage{fontspec}
-  \\usepackage{enumitem}
-  \\setlist[description]{style=unboxed,font=\\sffamily\\bfseries}
-  \\usepackage{listings}
-  \\lstset{frame=single,
-           aboveskip=1em,
-           framesep=.5em,
-           framerule=0pt,
-           backgroundcolor=\\color{GhostWhite},
-           breaklines=true,
-           postbreak=\\mbox{\\textcolor{Red}{$↪$}\\enspace},
-           keepspaces=true,
-           columns=fullflexible}
-  \\usepackage{xcolor}
-  \\newcommand\\basicdefault[1]{\\scriptsize\\color{Black}\\ttfamily#1}
-  \\lstset{basicstyle=\\basicdefault{\\spaceskip1em}}
-  [DEFAULT-PACKAGES]
-  \\hypersetup{linkcolor=Blue,urlcolor=DarkBlue,
-    citecolor=DarkRed,colorlinks=true}
-  \\AtBeginDocument{\\renewcommand{\\UrlFont}{\\ttfamily}}
-  [PACKAGES]
-  [EXTRA]"
-           ("\\section{%s}" . "\\section*{%s}")
-           ("\\subsection{%s}" . "\\subsection*{%s}")
-           ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-           ("\\paragraph{%s}" . "\\paragraph*{%s}")
-           ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
-
-          ("report" "\\documentclass[11pt]{report}"
-           ("\\part{%s}" . "\\part*{%s}")
-           ("\\chapter{%s}" . "\\chapter*{%s}")
-           ("\\section{%s}" . "\\section*{%s}")
-           ("\\subsection{%s}" . "\\subsection*{%s}")
-           ("\\subsubsection{%s}" . "\\subsubsection*{%s}"))
-
-          ("book" "\\documentclass[11pt]{book}"
-           ("\\part{%s}" . "\\part*{%s}")
-           ("\\chapter{%s}" . "\\chapter*{%s}")
-           ("\\section{%s}" . "\\section*{%s}")
-           ("\\subsection{%s}" . "\\subsection*{%s}")
-           ("\\subsubsection{%s}" . "\\subsubsection*{%s}"))))
-
-
-  (add-to-list 'org-latex-classes
-               '("notes"
-                 "\\documentclass{scrartcl}
-       \\usepackage{mathtools}
-       \\usepackage{unicode-math}
-       \\usepackage{fontenc}
-       \\usepackage{hyperref}
-       [PACKAGES]
-       [NO-DEFAULT-PACKAGES]
-       [EXTRA]
-                 \\setmainfont{Libertinus Serif}
-                 \\setmathfont{Libertinus Math}
-                 \\setsansfont{Libertinus Sans}"
-                 ("\\section{%s}" . "\\section*{%s}")
-                 ("\\subsection{%s}" . "\\subsection*{%s}")
-                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-                 ("\\paragraph{%s}" . "\\paragraph*{%s}")
-                 ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
-#+END_SRC
-
-* Extras
-** EasyPG
-
-Protecting my secrets.
-
-#+BEGIN_SRC emacs-lisp
-  (setq epg-gpg-program "gpg2")
-  (setq epa-pinentry-mode 'loopback)
-#+END_SRC
-
-** Writing
-
-=writegood-mode= highlights bad word choices and has functions for calculating
-readability.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package writegood-mode
-    :bind ("C-c g" . writegood-mode)
-    :config
-    (add-to-list 'writegood-weasel-words "actionable"))
-#+END_SRC
-
-** Stack Overflow
-
-SX is a full stack overflow client within Emacs.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package sx
-    :config
-    (bind-keys :prefix "C-c s"
-               :prefix-map my-sx-map
-               :prefix-docstring "Global keymap for SX."
-               ("q" . sx-tab-all-questions)
-               ("i" . sx-inbox)
-               ("o" . sx-open-link)
-               ("u" . sx-tab-unanswered-my-tags)
-               ("a" . sx-ask)
-               ("s" . sx-search)))
-#+END_SRC
-
-** Email
-
-=notmuch= is a fast mail client. Install it externally, e.g. with =brew install
-notmuch= and then use it within emacs.
-
-#+BEGIN_SRC emacs-lisp
-  (use-package notmuch)
-#+END_SRC
-
-** Slack
-
-#+BEGIN_SRC emacs-lisp
-  (use-package slack
-    :commands (slack-start)
-    :init
-    (setq slack-buffer-emojify t)
-    (setq slack-prefer-current-team t)
-    :config
-    (load "~/dots/emacs/slack-config.el"))
-
-  (use-package alert
-    :commands (alert)
-    :init
-    (setq alert-style-default 'notifier))
+        (interactive)
+        (term-line-mode)
+        (yank)
+        (term-char-mode))))
+  :hook (term-mode . set-up-sane-term)
+  :bind (("C-c t" . sane-term)
+         ("C-c T" . sane-term-create)
+         ("C-c C-j" . sane-term-mode-toggle)))
 #+END_SRC
 
 ** PDF reader
@@ -1019,127 +923,462 @@ notmuch= and then use it within emacs.
 =pdf-tools= is better at this than =doc-view=.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package pdf-tools
-    :ensure t
-    :mode ("\\.pdf\\'" . pdf-view-mode)
-    :config
-    (pdf-tools-install)
-    (setq-default pdf-view-display-size 'fit-width)
-    :hook
-    (pdf-view . pdf-links-minor-mode))
+(use-package pdf-tools
+  :ensure t
+  :mode ("\\.pdf\\'" . pdf-view-mode)
+  :config
+  (pdf-tools-install)
+  (setq-default pdf-view-display-size 'fit-width)
+  :hook
+  (pdf-view . pdf-links-minor-mode))
 #+END_SRC
-
 ** Djvu reader
 
+Not as good as =pdf-tools= but gets the job done. My preferred =djvu= reader is
+=zathura= though.
+
 #+BEGIN_SRC emacs-lisp
-  (use-package djvu)
+(use-package djvu)
 #+END_SRC
 
-** Dash
+* Programming Modes
+** Markdown
 
-Modern list api for emacs.
+Not technically a progmramming mode but wth. Markdown support isn't built into
+Emacs, add it with =markdown-mode=.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package dash)
-  (use-package dash-functional)
+(use-package markdown-mode
+  :commands (markdown-mode gfm-mode)
+  :mode (("README\\.md\\'" . gfm-mode)
+         ("\\.md\\'" . markdown-mode)
+         ("\\.markdown\\'" . markdown-mode))
+  :init (setq markdown-command "multimarkdown"))
 #+END_SRC
 
-** Dired-X
-
-For hiding . files in dired.
+** Python
 
 #+BEGIN_SRC emacs-lisp
-  (require 'dired-x)
-  (setq-default dired-omit-files-p t)
-  (setq dired-omit-files (concat dired-omit-files "\\|^\\..+$"))
+(use-package anaconda-mode
+  :hook
+  (python-mode . anaconda-mode)
+  (python-mode . anaconda-eldoc-mode))
+
+(use-package company-anaconda
+  :config
+  (add-to-list 'company-backends 'company-anaconda))
 #+END_SRC
 
-** Dired hacks
-
-Extra dired functionalities.
+Control =conda= environments from Emacs.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package dired-ranger
-    :bind (:map dired-mode-map
-                ("W" . dired-ranger-copy)
-                ("X" . dired-ranger-move)
-                ("Y" . dired-ranger-paste)))
-  (use-package dired-filter
-    :bind (:map dired-mode-map
-                ("F" . dired-filter-map)))
-  (use-package dired-avfs)
-  (use-package dired-rainbow)
-  (use-package dired-collapse)
-  (use-package dired-narrow
-    :bind (:map dired-mode-map
-                ("/" . dired-narrow)))
-  (use-package dired-subtree
-    :bind (:map dired-mode-map
-                ("<tab>" . dired-subtree-toggle)
-                ("<backtab>" . dired-subtree-cycle)))
+(use-package conda
+  :init
+  (conda-env-initialize-interactive-shells)
+  (conda-env-initialize-eshell)
+  :config
+  (conda-env-autoactivate-mode t)
+  (setq conda-anaconda-home (expand-file-name "~/miniconda3"))
+  (setq conda-env-home-directory (expand-file-name "~/miniconda3")))
 #+END_SRC
 
-** Treemacs
-
-Tree navigation.
+=IPython= as python interpreter.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package treemacs
-    :config
-    (setq treemacs-follow-mode t)
-    (setq treemacs-filewatch-mode t)
-    (setq treemacs-fringe-indicator-mode t)
-    (bind-keys :prefix "C-c t"
-               :prefix-map my-treemacs-map
-               :prefix-docstring "Global keymap for treemacs."
-               ("t" . treemacs)
-               ("o" . treemacs-select-window)
-               ("b" . treemacs-bookmark)
-               ("f" . treemacs-find-file)
-               ("a" . treemacs-find-tag)))
-
-  (use-package treemacs-projectile
-    :after treemacs projectile)
-
-  (use-package treemacs-icons-dired
-    :after treemacs dired
-    :config
-    (setq treemacs-icons-dired-mode t))
-
-  (use-package treemacs-magit
-    :after treemacs magit)
+(when (executable-find "ipython")
+  (setq python-shell-interpreter "ipython"))
 #+END_SRC
 
-** Fill column indicator
+** R
+
+Emacs Speaks Statistics for R.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package fill-column-indicator
-    :config
-    (fci-mode 1))
+(use-package ess)
+(use-package ess-R-data-view)
 #+END_SRC
 
-** Eshell autosuggest
+#+RESULTS:
 
-Extend the =pcomplete= framework for =eshell= with completion from =fish=.
+** LaTeX
+
+AUCTeX is probably the best TeX editing system. CDLatTeX helps to speed up
+environment insertion, including AMS environments that naive AUCTeX does not.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package fish-completion
-    :config
-    (global-fish-completion-mode))
+(use-package tex
+  :demand t
+  :ensure auctex
+  :config
+  (setq-default TeX-engine 'luatex)
+  (setq-default TeX-PDF-mode t)
+  (setq-default TeX-master nil)
+  (setq TeX-parse-self t)
+  (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
+  (setq reftex-plug-into-AUCTeX t)
+  (setq reftex-bibliography-commands '("bibliography" "nobibliography" "addbibresource"))
+  (setq reftex-use-external-file-finders t)
+  (setq reftex-external-file-finders
+        '(("tex" . "kpsewhich -format=.tex %f")
+          ("bib" . "kpsewhich -format=.bib %f")))
+  (setq reftex-insert-label-flags '("s" "sft" "e"))
+  (setq TeX-electric-sub-and-superscrip t)
+  (setq TeX-electric-math (cons "\\(" "\\)"))
+  (setq LaTeX-electric-left-right-brace t)
+  :hook
+  ((LaTeX-mode . visual-line-mode)
+   (LaTeX-mode . turn-on-auto-fill)
+   (LaTeX-mode . flyspell-mode)
+   (LaTeX-mode . LaTeX-math-mode)
+   (LaTeX-mode . turn-on-reftex)
+   (TeX-after-compilation-finished-functions
+    . TeX-revert-document-buffer)))
+
+(use-package auctex-latexmk
+  :hook
+  (LaTeX-mode . auctex-latexmk-setup))
 #+END_SRC
 
-=Fish=-like history autosuggestions for =eshell=.
+Add company mode support.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package esh-autosuggest
-    :hook
-    (eshell-mode . esh-autosuggest-mode))
+(use-package company-math
+  :config
+  (add-to-list 'company-backends 'company-math-symbols-latex)
+  (add-to-list 'company-backends 'company-math-symbols-unicode))
 #+END_SRC
 
-** Emms
+* Org mode
+My life in plain text.
+** Pinning org-mode
 
-Emacs is also a multimedia system!
+Just to make sure that it is using org from ELPA. Not loading the =contrib=
+extension since it is disrupting some normal =org-mode= features, like expansion
+of source blocks with =<s TAB=.
 
 #+BEGIN_SRC emacs-lisp
-  (use-package emms)
+(add-to-list 'package-archives '("org" . "https://orgmode.org/elpa/") t)
+
+(use-package org
+ :pin org)
+#+END_SRC
+
+** General settings.
+
+Set the default directory for =org-mode= and define some =org-mode= variables.
+
+#+BEGIN_SRC emacs-lisp
+(setq org-startup-indented 'f)
+(setq org-directory "~/org/")
+(setq org-special-ctrl-a/e 't)
+(setq org-default-notes-file (concat org-directory "notes.org"))
+(setq org-agenda-files (list (concat org-directory "todo.org")))
+(global-set-key (kbd "\C-c a") 'org-agenda)
+(define-key global-map "\C-c c" 'org-capture)
+(setq org-src-window-setup 'current-window)
+(setq org-list-description-max-indent 5)
+;; prevent demoting heading also shifting text inside sections
+(setq org-adapt-indentation nil)
+#+END_SRC
+
+** Appearance
+
+Improve the display of bullet points.
+
+#+BEGIN_SRC emacs-lisp
+(use-package org-bullets
+  :config
+  (setq org-bullets-bullet-list '("∙"))
+  :hook
+  (org-bullets . org-mode))
+#+END_SRC
+
+Fontify whole line for headings.
+
+#+BEGIN_SRC emacs-lisp
+(setq org-fontify-whole-heading-line t)
+#+END_SRC
+
+=auto-fill-mode= for =org-mode= too.
+
+#+BEGIN_SRC emacs-lisp
+(add-hook 'org-mode-hook 'auto-fill-mode)
+#+END_SRC
+
+** Todo keywords
+
+Additional todo keywords for =org-mode=. This will also save timestamps when
+completing tasks
+
+#+BEGIN_SRC emacs-lisp
+(setq org-todo-keywords '((sequence "TODO(t)" "INPROGRESS(p)" "|" "DONE(d!)" "DROP(x!)"))
+      org-log-into-drawer t)
+#+END_SRC
+
+** LaTeX with org-mode
+
+If AUCTeX is the best TeX editing system then =org-mode= is definitely a close
+second. Depending on what kind of document I am writing, I might prefer one over
+the other. For =org-mode= to LaTeX export I prefer certain defaults.
+
+=latexmk= with the =lualatex= engine as the LaTeX exporter.
+
+#+BEGIN_SRC emacs-lisp
+(setq org-latex-pdf-process '("latexmk -lualatex -quiet -shell-escape -bibtex -f -pdf %f"))
+#+END_SRC
+
+=lstlisting= for source environments.
+
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-latex-packages-alist '("" "listingsutf8"))
+(setq org-latex-listings t)
+#+END_SRC
+
+Preserve indentations.
+
+#+BEGIN_SRC emacs-lisp
+(setq org-src-preserve-indentation t)
+#+END_SRC
+
+Pretty symbols
+
+This setting will make subscripts (x_{subscript}) and superscripts
+(x^{superscript}) appear in org in a AUCTeX fashion.
+
+#+BEGIN_SRC emacs-lisp
+(setq-default org-pretty-entities t)
+#+END_SRC
+
+LaTeX blocks
+
+To preview latex fragments, we need some quick set up to obtain proper quality
+to read it in a Retina display.
+
+#+BEGIN_SRC emacs-lisp
+(setq org-latex-create-formula-image-program 'dvisvgm)
+#+END_SRC
+
+D&D with =org-mode= and LaTeX.
+
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'load-path (concat configuration-dir "lisp/" "emacs-org-dnd"))
+(require 'ox-dnd)
+#+END_SRC
+
+** Spell checking
+
+Add spell checking by enabling flyspell in its buffers. The configuration for
+flyspell is above.
+
+#+BEGIN_SRC emacs-lisp
+(add-hook 'org-mode-hook 'flyspell-mode)
+#+END_SRC
+
+** Reveal.js export
+
+=org-re-reveal= for presentations using =reveal.js=.
+
+#+BEGIN_SRC emacs-lisp
+(use-package org-re-reveal
+  :config
+  (setq org-re-reveal-root "https://www.jsdelivr.com/package/npm/reveal.js"))
+#+END_SRC
+
+** Org-ref
+
+=org-ref= for maintaining references.
+
+#+BEGIN_SRC emacs-lisp
+(use-package org-ref
+  :init
+  (setq org-ref-bibtex-hydra-key-binding (kbd "C-c j"))
+  :config
+  (setq org-ref-completion-library 'org-ref-ivy-cite
+        org-latex-prefer-user-labels t))
+#+END_SRC
+
+Default bibliography directories for =org-ref=.
+
+#+BEGIN_SRC emacs-lisp
+(setq bibliography-dir "~/Documents/research/bibliography/")
+(setq reftex-default-bibliography '(concat bibliography-dir "references.bib"))
+(setq org-ref-bibliography-notes (concat bibliography-dir "notes.org")
+      org-ref-default-bibliography '(concat bibliography-dir "references.bib")
+      org-ref-pdf-directory (concat bibliography-dir "bibtex-pdfs/"))
+#+END_SRC
+
+We also make sure to create the directory if it does not exist
+
+#+BEGIN_SRC emacs-lisp
+(unless (file-exists-p org-ref-pdf-directory)
+  (make-directory org-ref-pdf-directory t))
+#+END_SRC
+
+Set default key in Bibtex entries
+
+When using tools like =crossref-add-bibtex-entry=, we want a meaningful key to
+be defined in the entries. I found this method in the =org-ref= config file.
+
+#+BEGIN_SRC emacs-lisp
+(setq bibtex-autokey-year-length 4
+      bibtex-autokey-name-year-separator "-"
+      bibtex-autokey-year-title-separator "-"
+      bibtex-autokey-titleword-separator "-"
+      bibtex-autokey-titlewords 2
+      bibtex-autokey-titlewords-stretch 1
+      bibtex-autokey-titleword-length 5)
+#+END_SRC
+
+** Display inline images
+
+A small piece of elisp extracted from The Joy of Programming to properly display
+inline images in org.
+
+#+BEGIN_SRC emacs-lisp
+(defun my/fix-inline-images ()
+  (when org-inline-image-overlays
+    (org-redisplay-inline-images)))
+
+(add-hook 'org-babel-after-execute-hook 'my/fix-inline-images)
+(setq-default org-image-actual-width 620)
+#+END_SRC
+
+** My website publishing configuration
+
+#+BEGIN_SRC emacs-lisp
+(setq my-web-dir "~/Documents/e-eight.gitlab.io/")
+(setq my-base-dir (concat my-web-dir "org"))
+(setq my-publish-dir (concat my-web-dir "publish"))
+
+(require 'ox-publish)
+
+(setq my-web-header-file (concat my-base-dir "/partials/header.html")
+      my-web-footer-file (concat my-base-dir "/partials/footer.html")
+      org-html-validation-link nil)
+
+;; Load partials on memory
+(defun my-web-header (arg)
+  (with-temp-buffer
+    (insert-file-contents my-web-header-file)
+    (buffer-string)))
+
+(defun my-blog-footer (arg)
+  (with-temp-buffer
+    (insert-file-contents my-web-footer-file)
+    (buffer-string)))
+
+(defun filter-local-links (link backend info)
+  "Filter that converts all the /index.html links to /"
+  (if (org-export-derived-backend-p backend 'html)
+      (replace-regexp-in-string "/index.html" "/" link)))
+
+(setq org-publish-project-alist
+      '(;; Publish the posts
+        ("posts"
+         :base-directory my-base-dir
+         :base-extension "org"
+         :publishing-directory my-publish-dir
+         :recursive t
+         :publishing-function org-html-publish-to-html
+         :headline-levels 4
+         :section-numbers nil
+         :html-head nil
+         :html-head-include-default-style nil
+         :html-head-include-scripts nil
+         :html-preamble my-web-header
+         :html-postamble my-web-footer
+         )
+
+        ;; For static files that should remain untouched
+        ("static"
+         :base-directory my-base-dir
+         :base-extension "css\\|js\\|png\\|jpg\\|gif\\|pdf\\|mp3\\|ogg\\|swf\\|eot\\|svg\\|woff\\|woff2\\|ttf"
+         :publishing-directory my-publish-dir
+         :recursive t
+         :publishing-function org-publish-attachment
+         )
+
+        ;; Combine the two previous components in a single one
+        ("web" :components ("posts" "static"))))
+
+(add-to-list 'org-export-filter-link-functions 'filter-local-links)
+#+END_SRC
+
+** Planning file per project
+
+I like the idea of having a file in the root of each project called
+planning.org, in which I can put all the tasks, ideas, and other research I
+perform about a project. In case I add TODO entries, meetings, or other
+artifacts, I want them to appear in the agenda. For that reason, this functions
+checks for possible planning files existing in my projects.
+
+#+BEGIN_SRC emacs-lisp
+(defun get-my-planning-files ()
+  "Get a list of existing planning files per project."
+  (let ((candidates (map 'list
+                         (lambda (x) (concat x "planning.org"))
+                         (projectile-relevant-known-projects))))
+    (remove-if-not 'file-exists-p candidates)))
+
+(defun update-planning-files ()
+  "Update the org-agenda-files variable with the planning files per project."
+  (interactive)
+  (dolist (new-org-file (get-my-planning-files))
+    (add-to-list 'org-agenda-files new-org-file)))
+
+;; For some reason, the list seem to be overwritten during init
+(add-hook 'after-init-hook 'update-planning-files)
+#+END_SRC
+
+** Better RET
+
+While reading this post in the Kitchin Research Group website, I stumbled into
+this package that allows a better behavior of RET in org-mode.
+
+#+BEGIN_SRC emacs-lisp
+(use-package org-autolist
+  :ensure t
+  :config (add-hook 'org-mode-hook (lambda () (org-autolist-mode))))
+#+END_SRC
+
+** Babel
+
+Org-babel can be used for literate programming, executing source code within
+org-mode.
+
+#+BEGIN_SRC emacs-lisp
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((shell . t)
+   (latex . t)
+   (ditaa . t)
+   (C . t)
+   (R . t)
+   (python . t)))
+#+END_SRC
+
+Syntax highlighting and tabbing in source blocks.
+
+#+BEGIN_SRC emacs-lisp
+(setq org-src-fontify-natively 't)
+(setq org-src-tab-acts-natively t)
+#+END_SRC
+
+Custom source blocks
+
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'org-structure-template-alist
+             '("E" "#+BEGIN_SRC emacs-lisp \n  ?\n#+END_SRC"))
+(add-to-list 'org-structure-template-alist
+             '("p" "#+BEGIN_SRC python \n  ?\n#+END_SRC"))
+(add-to-list 'org-structure-template-alist
+             '("R" "#+BEGIN_SRC R \n  ?\n#+END_SRC"))
+#+END_SRC
+
+** Reload org-mode
+
+For some reason it gives an error otherwise.
+
+#+BEGIN_SRC emacs-lisp
+(org-reload)
 #+END_SRC
