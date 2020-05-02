@@ -145,14 +145,11 @@ choices for the abbreviations.
 
 ** Tabs vs Spaces
 
-Going to go with spaces on this one. I will also fix the indentation offest and
-tab width, setting both to 2.
+Going to go with spaces on this one. I will also fix tab width to 2.
 
 #+BEGIN_SRC emacs-lisp
 (setq-default indent-tabs-mode nil)
-
 (setq tab-width 2)
-(defvaralias 'c-basic-offset 'tab-width)
 #+END_SRC
 
 ** Fix scroll
@@ -954,6 +951,15 @@ Emacs, add it with =markdown-mode=.
          ("\\.md\\'" . markdown-mode)
          ("\\.markdown\\'" . markdown-mode))
   :init (setq markdown-command "multimarkdown"))
+#+END_SRC
+
+** C/C++
+
+Google's style for C/C++ modes.
+
+#+BEGIN_SRC emacs-lisp
+(add-hook 'c-mode-common-hook 'google-set-c-style)
+(add-hook 'c-mode-common-hook 'google-make-newline-indent)
 #+END_SRC
 
 ** Python
