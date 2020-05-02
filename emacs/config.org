@@ -1130,14 +1130,16 @@ the other. For =org-mode= to LaTeX export I prefer certain defaults.
 =latexmk= with the =lualatex= engine as the LaTeX exporter.
 
 #+BEGIN_SRC emacs-lisp
-(setq org-latex-pdf-process '("latexmk -lualatex -quiet -shell-escape -bibtex -f -pdf %f"))
+(setq org-latex-pdf-process
+      '("latexmk -pdflatex=lualatex -quiet -shell-escape -bibtex -f -pdf %f"))
 #+END_SRC
 
 =lstlisting= for source environments.
 
 #+BEGIN_SRC emacs-lisp
-(add-to-list 'org-latex-packages-alist '("" "listingsutf8"))
-(setq org-latex-listings t)
+(add-to-list 'org-latex-packages-alist '("" "listingsutf8" nil))
+(setq org-latex-listings 'listings)
+(setq org-latex-listings-options '(("breaklines" "true"))
 #+END_SRC
 
 Preserve indentations.
